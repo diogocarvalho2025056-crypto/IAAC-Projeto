@@ -1,0 +1,15 @@
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Datasets pesados (mantém o repositório leve)
+data/
+*.csv
+
+# Modelos treinados pesados
+models/
+*.pkl
+
+# Ambientes virtuais
+.venv/
+.venv-1/
