@@ -1,52 +1,44 @@
-import os
+from pathlib import Path
 import pandas as pd
-from src.data.make_dataset import clean_data, load_raw_data
-from src.features.build_features import FeatureBuilder
-from src.models.train_model import ModelTrainer
-from src.agents.crew_system import CybersecurityMultiAgentSystem
+from src.data.data_prep import RansomDataPipeline
+from src.models.model_trainer import ModelTrainer
 
 
 def main():
-    print("=" * 65)
-    print(" PIPELINE CRISP-ML & SISTEMA MULTIAGENTE DE CIBERSEGURANÇA ")
-    print("=" * 65)
+    root_path = Path(__file__).resolve().parent
+    data_path = root_path / "data" / "raw" / "ransom.csv"
 
-    # 1. CRISP-ML: Data Understanding & Preparation
-    print("\n[1/4] A carregar e limpar dados brutos...")
-    df_raw = load_raw_data("data/raw/ransom.csv")
-    df_clean = clean_data(df_raw)
-    os.makedirs("data/interim", exist_ok=True)
-    df_clean.to_csv("data/interim/ransom_clean.csv", index=False)
+    if not data_path.exists():
+        data_path = root_path / "data" / "ransom.csv"
 
-    # 2. CRISP-ML: Feature Engineering
-    print("\n[2/4] A transformar atributos e codificar Hex/PE Headers...")
-    builder = FeatureBuilder(target_col="Class")
-    X, y = builder.transform(df_clean)
-    os.makedirs("data/processed", exist_ok=True)
-    processed_df = pd.concat([X, y], axis=1)
-    processed_df.to_csv("data/processed/ransom_processed.csv", index=False)
+    if not data_path.exists():
+        raise FileNotFoundError(f"Ficheiro de dados não encontrado em {data_path}")
 
-    # 3. CRISP-ML: Model Training & Evaluation
-    print("\n[3/4] A treinar classificadores no Scikit-Learn...")
+    print(f"A carregar dataset de: {data_path}")
+    df = pd.read_csv(data_path)
+
+    # 1. Instanciar e executar a pipeline de dados
+    prep = RansomDataPipeline(target_col="Class")
+    X, y = prep.fit_transform(df)
+
+    # 2. Divisão em 3 conjuntos (70% Treino, 15% Validação, 15% Teste)
+    X_train, X_val, X_test, y_train, y_val, y_test = prep.split_data_3way(X, y)
+
+    print(f"Distribuição dos dados:")
+    print(f" - Treino    (70%): {X_train.shape[0]} amostras")
+    print(f" - Validação  (15%): {X_val.shape[0]} amostras")
+    print(f" - Teste      (15%): {X_test.shape[0]} amostras\n")
+
+    # 3. Treinar e avaliar modelos
     trainer = ModelTrainer()
-    trainer.run("data/processed/ransom_processed.csv")
-
-    # 4. CRISP-ML: Deployment & Invocação Multiagente
-    print("\n[4/4] A iniciar o Sistema Multiagente Generativo...")
-    agent_system = CybersecurityMultiAgentSystem(
-        model_path="models/best_model_ransom.pkl"
+    results = trainer.train_and_evaluate_3way(
+        X_train, X_val, X_test, y_train, y_val, y_test
     )
 
-    # Amostra de teste
-    sample = X.iloc[0]
-    output = agent_system.analyze_sample(sample)
-
-    print("\n" + "=" * 30 + " RESULTADO FINAL " + "=" * 30)
-    print(f"Classificação : {output['prediction']}")
-    print(f"Confiança     : {output['confidence']:.2%}")
-    print(f"Classificador : {output['classifier_used']}")
-    print(f"\nRelatório do Agente Generativo:\n{output['executive_report']}")
-    print("=" * 67)
+    # 4. Guardar o melhor modelo na pasta /models
+    models_dir = root_path / "models"
+    models_dir.mkdir(exist_ok=True)
+    trainer.save_best_model(models_dir / "best_model_ransom.pkl", prep.feature_names)
 
 
 if __name__ == "__main__":

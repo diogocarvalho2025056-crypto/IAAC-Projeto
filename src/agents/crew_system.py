@@ -1,60 +1,63 @@
 import os
+from pathlib import Path
 import joblib
 import pandas as pd
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
 
 class CybersecurityMultiAgentSystem:
-    def __init__(
-        self,
-        model_path: str = "models/best_model_ransom.pkl",
-        llm_model: str = "google/flan-t5-base",
-    ):
-        # 1. Agente 1: Classificador ML (RandomForest)
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"Modelo não encontrado em '{model_path}'. Executa o train_model.py primeiro!"
-            )
+    def __init__(self, model_path: str = None, llm_model: str = "google/flan-t5-base"):
+        if model_path is None:
+            root_dir = Path(__file__).resolve().parent.parent.parent
+            model_path = root_dir / "models" / "best_model_ransom.pkl"
 
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Modelo não encontrado em '{model_path}'. Treina o modelo executando 'main.py' primeiro!")
+
+        # 1. Carregar o melhor classificador treinado
         data = joblib.load(model_path)
         self.classifier = data["model"]
         self.feature_names = data["features"]
         self.model_name = data.get("model_name", "RandomForest")
 
-        print(f"[Agente 1] Classificador ML '{self.model_name}' carregado com sucesso.")
+        print(f"[Agente Classificador] Modelo ML '{self.model_name}' carregado com sucesso.")
 
-        # 2. Agente 2: Gerador de Relatórios via Flan-T5
-        print(f"[Agente 2] A carregar o modelo de linguagem (LLM: {llm_model})...")
-        self.tokenizer = AutoTokenizer.from_pretrained(llm_model)
-        self.llm = AutoModelForSeq2SeqLM.from_pretrained(llm_model)
-        print("[Agente 2] Agente Generativo pronto.")
+        # 2. Carregar a LLM (Flan-T5) explicitamente com AutoModelForSeq2SeqLM
+        print(f"[Agente Generativo] A carregar a LLM ({llm_model})...")
+        tokenizer = AutoTokenizer.from_pretrained(llm_model)
+        model = AutoModelForSeq2SeqLM.from_pretrained(llm_model)
+        
+        self.report_generator = pipeline(
+            "text2text-generation", 
+            model=model, 
+            tokenizer=tokenizer
+        )
+        print("[Agente Generativo] Agente pronto a operar.")
 
     def analyze_sample(self, sample_series: pd.Series) -> dict:
-        """Recebe as caraterísticas de um ficheiro e gera o relatório do sistema multiagente."""
-        input_data = pd.DataFrame([sample_series])[self.feature_names].fillna(0)
+        """
+        Interage entre o Agente Classificador (ML) e o Agente Generativo (LLM)
+        para produzir uma análise conclusiva.
+        """
+        # Preparar a amostra com as mesmas features do treino
+        input_data = pd.DataFrame([sample_series])[self.feature_names].fillna(0.0)
 
-        # AGENTE 1: Previsão do Classificador ML
+        # AGENTE 1: Previsão e Probabilidade
         prediction_code = self.classifier.predict(input_data)[0]
         confidence = self.classifier.predict_proba(input_data).max()
         label = "Malware (Ameaça Detetada)" if prediction_code == 1 else "Benign (Ficheiro Seguro)"
 
-        # AGENTE 2: Elaboração do Relatório com o modelo de linguagem (Prompt focado)
-        if prediction_code == 1:
-            prompt = (
-                f"Security Alert: High risk file detected! "
-                f"Status: {label} with {confidence:.2%} confidence using {self.model_name}. "
-                f"Action required: Quarantining file and isolating system."
-            )
-        else:
-            prompt = (
-                f"Security Assessment: Clean file. "
-                f"Status: {label} with {confidence:.2%} confidence using {self.model_name}. "
-                f"Action required: File approved for execution."
-            )
+        # AGENTE 2: Elaboração do Relatório por IA
+        prompt = (
+            f"Generate a concise cybersecurity incident report.\n"
+            f"Verdict: {label}\n"
+            f"Model Confidence: {confidence:.2%}\n"
+            f"Detection Algorithm: {self.model_name}\n"
+            f"Provide an executive summary and key security mitigation steps."
+        )
 
-        inputs = self.tokenizer(prompt, return_tensors="pt")
-        outputs = self.llm.generate(**inputs, max_new_tokens=80)
-        report_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        llm_out = self.report_generator(prompt, max_new_tokens=150, do_sample=False)
+        report_text = llm_out[0]["generated_text"]
 
         return {
             "prediction": label,
@@ -65,17 +68,39 @@ class CybersecurityMultiAgentSystem:
 
 
 if __name__ == "__main__":
-    df_proc = pd.read_csv("data/processed/ransom_processed.csv")
-    sample = df_proc.drop(columns=["Class"]).iloc[0]
+    import sys
 
+    # Adicionar a raiz do projeto ao sys.path para reconhecer a pasta 'src'
+    root_dir = Path(__file__).resolve().parent.parent.parent
+    if str(root_dir) not in sys.path:
+        sys.path.insert(0, str(root_dir))
+
+    from src.data.data_prep import RansomDataPipeline
+
+    print("A carregar amostra de teste...")
+    data_path = root_dir / "data" / "raw" / "ransom.csv"
+    
+    if not data_path.exists():
+        data_path = root_dir / "data" / "ransom.csv"
+
+    df = pd.read_csv(data_path)
+
+    # Transformar os dados
+    prep = RansomDataPipeline(target_col="Class")
+    X, y = prep.fit_transform(df)
+
+    # Selecionar uma amostra para teste
+    sample_to_test = X.iloc[0]
+
+    # Executar o sistema multiagente
     system = CybersecurityMultiAgentSystem()
-    result = system.analyze_sample(sample)
+    result = system.analyze_sample(sample_to_test)
 
-    print("\n" + "=" * 50)
-    print("      RELATÓRIO DO SISTEMA MULTIAGENTE")
-    print("=" * 50)
-    print(f"Resultado  : {result['prediction']}")
-    print(f"Confiança  : {result['confidence']:.2%}")
-    print(f"Modelo ML  : {result['classifier_used']}")
-    print(f"\nRelatório IA:\n{result['executive_report']}")
-    print("=" * 50)
+    print("\n" + "=" * 60)
+    print("      RELATÓRIO GERADO PELO SISTEMA MULTIAGENTE")
+    print("=" * 60)
+    print(f"Resultado Final  : {result['prediction']}")
+    print(f"Confiança        : {result['confidence']:.2%}")
+    print(f"Classificador    : {result['classifier_used']}")
+    print(f"\nRelatório IA (LLM):\n{result['executive_report']}")
+    print("=" * 60)
