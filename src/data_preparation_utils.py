@@ -80,3 +80,16 @@ def standardizar_dados(X_train, X_test):
     )
 
     return X_train_scaled, X_test_scaled, scaler
+
+def verificar_perfis_repetidos(df, target):
+    features = df.drop(columns=[target])
+
+    duplicados = features.duplicated(
+        keep=False
+    )
+
+    return df[duplicados]
+
+
+def distribuicao_classes(y):
+    return y.value_counts(normalize=True) * 100
