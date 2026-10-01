@@ -1,63 +1,74 @@
 import os
+import sys
 from pathlib import Path
+
+# Adiciona a pasta raiz do projeto ao sys.path do Python
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import joblib
 import pandas as pd
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from src.data.data_prep import RansomDataPipeline
 
 
 class CybersecurityMultiAgentSystem:
-    def __init__(self, model_path: str = None, llm_model: str = "google/flan-t5-base"):
+    def __init__(
+        self,
+        model_path: str = None,
+        llm_model_name: str = "google/flan-t5-base",
+    ):
         if model_path is None:
-            root_dir = Path(__file__).resolve().parent.parent.parent
-            model_path = root_dir / "models" / "best_model_ransom.pkl"
+            model_path = ROOT_DIR / "models" / "best_model_ransom.pkl"
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Modelo não encontrado em '{model_path}'. Treina o modelo executando 'main.py' primeiro!")
+            raise FileNotFoundError(
+                f"Modelo ML não encontrado em '{model_path}'. Executa primeiro o treino!"
+            )
 
-        # 1. Carregar o melhor classificador treinado
+        # 1. Agente Classificador (Scikit-Learn)
         data = joblib.load(model_path)
         self.classifier = data["model"]
         self.feature_names = data["features"]
         self.model_name = data.get("model_name", "RandomForest")
-
         print(f"[Agente Classificador] Modelo ML '{self.model_name}' carregado com sucesso.")
 
-        # 2. Carregar a LLM (Flan-T5) explicitamente com AutoModelForSeq2SeqLM
-        print(f"[Agente Generativo] A carregar a LLM ({llm_model})...")
-        tokenizer = AutoTokenizer.from_pretrained(llm_model)
-        model = AutoModelForSeq2SeqLM.from_pretrained(llm_model)
-        
-        self.report_generator = pipeline(
-            "text2text-generation", 
-            model=model, 
-            tokenizer=tokenizer
-        )
+        # Pipeline para transformar amostras brutas
+        self.prep_pipeline = RansomDataPipeline(target_col="Class")
+
+        # 2. Agente Generativo (Hugging Face - Seq2Seq)
+        print(f"[Agente Generativo] A carregar a LLM ({llm_model_name})...")
+        self.tokenizer = AutoTokenizer.from_pretrained(llm_model_name)
+        self.llm_model = AutoModelForSeq2SeqLM.from_pretrained(llm_model_name)
         print("[Agente Generativo] Agente pronto a operar.")
 
-    def analyze_sample(self, sample_series: pd.Series) -> dict:
-        """
-        Interage entre o Agente Classificador (ML) e o Agente Generativo (LLM)
-        para produzir uma análise conclusiva.
-        """
-        # Preparar a amostra com as mesmas features do treino
-        input_data = pd.DataFrame([sample_series])[self.feature_names].fillna(0.0)
+    def analyze_raw_df(self, raw_df: pd.DataFrame, sample_index: int = 0) -> dict:
+        """Processa uma amostra bruta do dataset executando a pipeline de pré-processamento."""
+        X_prep, _ = self.prep_pipeline.fit_transform(raw_df)
+        input_sample = X_prep.reindex(columns=self.feature_names, fill_value=0).iloc[[sample_index]]
 
-        # AGENTE 1: Previsão e Probabilidade
-        prediction_code = self.classifier.predict(input_data)[0]
-        confidence = self.classifier.predict_proba(input_data).max()
-        label = "Malware (Ameaça Detetada)" if prediction_code == 1 else "Benign (Ficheiro Seguro)"
+        # Previsão do modelo
+        pred_code = self.classifier.predict(input_sample)[0]
+        confidence = float(self.classifier.predict_proba(input_sample).max())
+        label = "Malware (Ameaça Detetada)" if pred_code == 1 else "Benign (Ficheiro Seguro)"
 
-        # AGENTE 2: Elaboração do Relatório por IA
+        # Relatório IA
         prompt = (
-            f"Generate a concise cybersecurity incident report.\n"
-            f"Verdict: {label}\n"
-            f"Model Confidence: {confidence:.2%}\n"
-            f"Detection Algorithm: {self.model_name}\n"
-            f"Provide an executive summary and key security mitigation steps."
+            f"Write a concise cybersecurity threat status report:\n"
+            f"- File Status: {label}\n"
+            f"- Detection Confidence: {confidence:.2%}\n"
+            f"- Model Used: {self.model_name}\n\n"
+            f"Provide a brief executive summary and security action step:"
         )
 
-        llm_out = self.report_generator(prompt, max_new_tokens=150, do_sample=False)
-        report_text = llm_out[0]["generated_text"]
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        outputs = self.llm_model.generate(
+            **inputs,
+            max_new_tokens=100,
+            do_sample=False
+        )
+        report_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         return {
             "prediction": label,
@@ -68,33 +79,22 @@ class CybersecurityMultiAgentSystem:
 
 
 if __name__ == "__main__":
-    import sys
-
-    # Adicionar a raiz do projeto ao sys.path para reconhecer a pasta 'src'
-    root_dir = Path(__file__).resolve().parent.parent.parent
-    if str(root_dir) not in sys.path:
-        sys.path.insert(0, str(root_dir))
-
-    from src.data.data_prep import RansomDataPipeline
-
     print("A carregar amostra de teste...")
-    data_path = root_dir / "data" / "raw" / "ransom.csv"
     
+    # Procura o ficheiro de dados
+    data_path = ROOT_DIR / "data" / "raw" / "ransom.csv"
     if not data_path.exists():
-        data_path = root_dir / "data" / "ransom.csv"
+        data_path = ROOT_DIR / "data" / "ransom.csv"
+    if not data_path.exists():
+        data_path = ROOT_DIR / "ransom.csv"
+
+    if not data_path.exists():
+        raise FileNotFoundError("Dataset ransom.csv não foi encontrado.")
 
     df = pd.read_csv(data_path)
 
-    # Transformar os dados
-    prep = RansomDataPipeline(target_col="Class")
-    X, y = prep.fit_transform(df)
-
-    # Selecionar uma amostra para teste
-    sample_to_test = X.iloc[0]
-
-    # Executar o sistema multiagente
     system = CybersecurityMultiAgentSystem()
-    result = system.analyze_sample(sample_to_test)
+    result = system.analyze_raw_df(df, sample_index=10877)
 
     print("\n" + "=" * 60)
     print("      RELATÓRIO GERADO PELO SISTEMA MULTIAGENTE")
