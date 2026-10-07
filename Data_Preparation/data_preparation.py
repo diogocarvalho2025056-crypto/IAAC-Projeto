@@ -153,21 +153,41 @@ print(y.shape)
 
 
 # --------------------------------------------------
-# 11. DIVIDIR TREINO E TESTE
+# 11. DIVIDIR TREINO, VALIDAÇÃO E TESTE
 # --------------------------------------------------
 
-X_train, X_test, y_train, y_test = train_test_split(
+# Primeiro:
+# 70% treino
+# 30% temporário
+
+X_train, X_temp, y_train, y_temp = train_test_split(
     X,
     y,
-    test_size=0.20,
+    test_size=0.30,
     random_state=42,
     stratify=y
 )
 
+# Depois divide os 30% temporários em:
+# 15% validação
+# 15% teste
+
+X_val, X_test, y_val, y_test = train_test_split(
+    X_temp,
+    y_temp,
+    test_size=0.50,
+    random_state=42,
+    stratify=y_temp
+)
+
 print("\n--- DIMENSÕES DOS CONJUNTOS ---")
+
 print("X_train:", X_train.shape)
+print("X_val:", X_val.shape)
 print("X_test:", X_test.shape)
+
 print("y_train:", y_train.shape)
+print("y_val:", y_val.shape)
 print("y_test:", y_test.shape)
 
 
@@ -176,11 +196,19 @@ print("y_test:", y_test.shape)
 # --------------------------------------------------
 
 print("\n--- DISTRIBUIÇÃO NO TREINO ---")
-print(y_train.value_counts(normalize=True) * 100)
+print(
+    y_train.value_counts(normalize=True) * 100
+)
+
+print("\n--- DISTRIBUIÇÃO NA VALIDAÇÃO ---")
+print(
+    y_val.value_counts(normalize=True) * 100
+)
 
 print("\n--- DISTRIBUIÇÃO NO TESTE ---")
-print(y_test.value_counts(normalize=True) * 100)
-
+print(
+    y_test.value_counts(normalize=True) * 100
+)
 
 # --------------------------------------------------
 # 13. FEATURE SCALING - STANDARDIZAÇÃO
@@ -188,17 +216,32 @@ print(y_test.value_counts(normalize=True) * 100)
 
 scaler = StandardScaler()
 
-# Aprende média e desvio-padrão apenas com o treino
-X_train_scaled = scaler.fit_transform(X_train)
+# Aprende apenas com os dados de treino
+X_train_scaled = scaler.fit_transform(
+    X_train
+)
 
-# Aplica exatamente a mesma transformação ao teste
-X_test_scaled = scaler.transform(X_test)
+# Aplica a mesma transformação à validação
+X_val_scaled = scaler.transform(
+    X_val
+)
 
-# Converter novamente para DataFrame para manter nomes das colunas
+# Aplica a mesma transformação ao teste
+X_test_scaled = scaler.transform(
+    X_test
+)
+
+# Converter novamente para DataFrame
 X_train_scaled = pd.DataFrame(
     X_train_scaled,
     columns=X_train.columns,
     index=X_train.index
+)
+
+X_val_scaled = pd.DataFrame(
+    X_val_scaled,
+    columns=X_val.columns,
+    index=X_val.index
 )
 
 X_test_scaled = pd.DataFrame(
@@ -208,11 +251,28 @@ X_test_scaled = pd.DataFrame(
 )
 
 print("\n--- FEATURE SCALING ---")
-print("X_train_scaled:", X_train_scaled.shape)
-print("X_test_scaled:", X_test_scaled.shape)
+
+print(
+    "X_train_scaled:",
+    X_train_scaled.shape
+)
+
+print(
+    "X_val_scaled:",
+    X_val_scaled.shape
+)
+
+print(
+    "X_test_scaled:",
+    X_test_scaled.shape
+)
 
 print("\n--- EXEMPLO ANTES DO SCALING ---")
-print(X_train.head())
+print(
+    X_train.head()
+)
 
 print("\n--- EXEMPLO DEPOIS DO SCALING ---")
-print(X_train_scaled.head())
+print(
+    X_train_scaled.head()
+)

@@ -11,6 +11,10 @@ from sklearn.metrics import (
     confusion_matrix,
     classification_report
 )
+from sklearn.model_selection import (
+    cross_val_score,
+    StratifiedKFold
+)
 
 from xgboost import XGBClassifier
 
@@ -195,3 +199,112 @@ def importancia_features(
     )
 
     return importancias
+
+
+
+# --------------------------------------------------
+# 10. CROSS-VALIDATION
+# --------------------------------------------------
+
+def avaliar_cross_validation(
+    nome,
+    modelo,
+    X_train,
+    y_train,
+    n_splits=5,
+    random_state=42
+):
+
+    cv = StratifiedKFold(
+        n_splits=n_splits,
+        shuffle=True,
+        random_state=random_state
+    )
+
+    recall_scores = cross_val_score(
+        modelo,
+        X_train,
+        y_train,
+        cv=cv,
+        scoring="recall"
+    )
+
+    f1_scores = cross_val_score(
+        modelo,
+        X_train,
+        y_train,
+        cv=cv,
+        scoring="f1"
+    )
+
+    resultados = {
+        "Modelo": nome,
+        "Recall CV": recall_scores.mean(),
+        "F1 CV": f1_scores.mean(),
+        "Desvio Recall": recall_scores.std(),
+        "Desvio F1": f1_scores.std()
+    }
+
+    return (
+        resultados,
+        recall_scores,
+        f1_scores
+    )
+
+# --------------------------------------------------
+# 11. SELECIONAR MELHOR MODELO
+# --------------------------------------------------
+
+def selecionar_melhor_modelo(
+    resultados_validacao,
+    resultados_cv
+):
+
+    resultados_validacao_dict = {
+        resultado["Modelo"]: resultado
+        for resultado in resultados_validacao
+    }
+
+    resultados_cv_dict = {
+        resultado["Modelo"]: resultado
+        for resultado in resultados_cv
+    }
+
+    def criterio(nome):
+
+        validacao = resultados_validacao_dict[nome]
+        cv = resultados_cv_dict[nome]
+
+        return (
+            validacao["Recall"],
+            validacao["F1-score"],
+            validacao["Accuracy"],
+            cv["Recall CV"],
+            cv["F1 CV"]
+        )
+
+    nome_melhor_modelo = max(
+        resultados_validacao_dict.keys(),
+        key=criterio
+    )
+
+    return nome_melhor_modelo
+
+# --------------------------------------------------
+# 12. OBTER MODELO SELECIONADO
+# --------------------------------------------------
+
+def obter_modelo_selecionado(
+    nome_modelo,
+    decision_tree,
+    random_forest,
+    xgboost
+):
+
+    if nome_modelo == "Decision Tree":
+        return decision_tree
+
+    if nome_modelo == "Random Forest":
+        return random_forest
+
+    return xgboost
