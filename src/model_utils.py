@@ -9,11 +9,15 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     confusion_matrix,
-    classification_report
+    classification_report,
+    roc_auc_score,
+    roc_curve
 )
+
 from sklearn.model_selection import (
     cross_val_score,
-    StratifiedKFold
+    StratifiedKFold,
+    GridSearchCV
 )
 
 from xgboost import XGBClassifier
@@ -65,7 +69,11 @@ def criar_xgboost(random_state=42):
 # 4. TREINAR MODELO
 # --------------------------------------------------
 
-def treinar_modelo(modelo, X_train, y_train):
+def treinar_modelo(
+    modelo,
+    X_train,
+    y_train
+):
 
     modelo.fit(
         X_train,
@@ -79,10 +87,13 @@ def treinar_modelo(modelo, X_train, y_train):
 # 5. FAZER PREVISÕES
 # --------------------------------------------------
 
-def prever(modelo, X_test):
+def prever(
+    modelo,
+    X_dados
+):
 
     y_pred = modelo.predict(
-        X_test
+        X_dados
     )
 
     return y_pred
@@ -94,38 +105,38 @@ def prever(modelo, X_test):
 
 def avaliar_modelo(
     nome,
-    y_test,
+    y_real,
     y_pred,
     nomes_classes=None
 ):
 
     accuracy = accuracy_score(
-        y_test,
+        y_real,
         y_pred
     )
 
     precision = precision_score(
-        y_test,
+        y_real,
         y_pred
     )
 
     recall = recall_score(
-        y_test,
+        y_real,
         y_pred
     )
 
     f1 = f1_score(
-        y_test,
+        y_real,
         y_pred
     )
 
     matriz = confusion_matrix(
-        y_test,
+        y_real,
         y_pred
     )
 
     relatorio = classification_report(
-        y_test,
+        y_real,
         y_pred,
         target_names=nomes_classes
     )
@@ -138,14 +149,20 @@ def avaliar_modelo(
         "F1-score": f1
     }
 
-    return resultados, matriz, relatorio
+    return (
+        resultados,
+        matriz,
+        relatorio
+    )
 
 
 # --------------------------------------------------
 # 7. COMPARAR MODELOS
 # --------------------------------------------------
 
-def comparar_modelos(resultados):
+def comparar_modelos(
+    resultados
+):
 
     tabela = pd.DataFrame(
         resultados
@@ -155,15 +172,15 @@ def comparar_modelos(resultados):
 
 
 # --------------------------------------------------
-# 8. ACCURACY TREINO VS TESTE
+# 8. COMPARAR TREINO VS VALIDAÇÃO
 # --------------------------------------------------
 
-def comparar_treino_teste(
+def comparar_treino_validacao(
     modelo,
     X_train,
     y_train,
-    X_test,
-    y_test
+    X_val,
+    y_val
 ):
 
     accuracy_treino = modelo.score(
@@ -171,12 +188,15 @@ def comparar_treino_teste(
         y_train
     )
 
-    accuracy_teste = modelo.score(
-        X_test,
-        y_test
+    accuracy_validacao = modelo.score(
+        X_val,
+        y_val
     )
 
-    return accuracy_treino, accuracy_teste
+    return (
+        accuracy_treino,
+        accuracy_validacao
+    )
 
 
 # --------------------------------------------------
@@ -199,7 +219,6 @@ def importancia_features(
     )
 
     return importancias
-
 
 
 # --------------------------------------------------
@@ -251,6 +270,7 @@ def avaliar_cross_validation(
         f1_scores
     )
 
+
 # --------------------------------------------------
 # 11. SELECIONAR MELHOR MODELO
 # --------------------------------------------------
@@ -290,6 +310,7 @@ def selecionar_melhor_modelo(
 
     return nome_melhor_modelo
 
+
 # --------------------------------------------------
 # 12. OBTER MODELO SELECIONADO
 # --------------------------------------------------
@@ -308,3 +329,175 @@ def obter_modelo_selecionado(
         return random_forest
 
     return xgboost
+
+
+# --------------------------------------------------
+# 13. HYPERPARAMETER TUNING - XGBOOST
+# --------------------------------------------------
+
+def otimizar_xgboost(
+    X_train,
+    y_train,
+    random_state=42
+):
+
+    parametros = {
+        "n_estimators": [
+            100,
+            200
+        ],
+
+        "max_depth": [
+            2,
+            3,
+            4
+        ],
+
+        "learning_rate": [
+            0.05,
+            0.10
+        ],
+
+        "reg_alpha": [
+            0,
+            0.1
+        ],
+
+        "reg_lambda": [
+            1,
+            5
+        ]
+    }
+
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=random_state
+    )
+
+    modelo = XGBClassifier(
+        objective="binary:logistic",
+        random_state=random_state,
+        eval_metric="logloss"
+    )
+
+    grid_search = GridSearchCV(
+        estimator=modelo,
+        param_grid=parametros,
+        scoring="recall",
+        cv=cv,
+        n_jobs=-1,
+        verbose=1
+    )
+
+    grid_search.fit(
+        X_train,
+        y_train
+    )
+
+    return grid_search
+
+
+# --------------------------------------------------
+# 14. SELECIONAR BASELINE OU OTIMIZADO
+# --------------------------------------------------
+
+def selecionar_baseline_ou_otimizado(
+    resultado_baseline,
+    resultado_otimizado,
+    modelo_baseline,
+    modelo_otimizado
+):
+
+    criterio_baseline = (
+        resultado_baseline["Recall"],
+        resultado_baseline["F1-score"],
+        resultado_baseline["Accuracy"]
+    )
+
+    criterio_otimizado = (
+        resultado_otimizado["Recall"],
+        resultado_otimizado["F1-score"],
+        resultado_otimizado["Accuracy"]
+    )
+
+    if criterio_otimizado > criterio_baseline:
+
+        return (
+            modelo_otimizado,
+            "XGBoost Otimizado"
+        )
+
+    return (
+        modelo_baseline,
+        "XGBoost Baseline"
+    )
+
+
+# --------------------------------------------------
+# 15. ROC / AUC
+# --------------------------------------------------
+
+def calcular_roc_auc(
+    modelo,
+    X_dados,
+    y_real
+):
+
+    probabilidades = modelo.predict_proba(
+        X_dados
+    )[:, 1]
+
+    auc = roc_auc_score(
+        y_real,
+        probabilidades
+    )
+
+    fpr, tpr, thresholds = roc_curve(
+        y_real,
+        probabilidades
+    )
+
+    return (
+        auc,
+        fpr,
+        tpr,
+        thresholds
+    )
+
+
+# --------------------------------------------------
+# 16. ANÁLISE DE OVERFITTING
+# --------------------------------------------------
+
+def analisar_overfitting(
+    nome,
+    modelo,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+):
+
+    accuracy_treino = modelo.score(
+        X_train,
+        y_train
+    )
+
+    accuracy_validacao = modelo.score(
+        X_val,
+        y_val
+    )
+
+    diferenca = (
+        accuracy_treino
+        - accuracy_validacao
+    )
+
+    return {
+        "Modelo": nome,
+        "Accuracy treino": accuracy_treino,
+        "Accuracy validação": accuracy_validacao,
+        "Diferença": diferenca
+    }
+
