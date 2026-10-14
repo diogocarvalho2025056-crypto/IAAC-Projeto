@@ -1,4 +1,5 @@
 ProjetoIAAC/
+
 ├── data/
 │   ├── raw/                  # Coloca aqui o teu ransom.csv original
 │   ├── interim/              # Dados limpos intermédios
