@@ -1,0 +1,20 @@
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Ficheiros de dados pesados e temporários
+data/raw/
+data/processed/
+
+# Modelos gerados
+models/*.pkl
+models/*.joblib
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Python / Cache
+__pycache__/
+*.pyc
