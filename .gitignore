@@ -8,8 +8,8 @@ env/
 # data/processed/
 
 # Modelos gerados
-models/*.pkl
-models/*.joblib
+# models/*.pkl
+# models/*.joblib
 
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
