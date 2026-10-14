@@ -17,7 +17,8 @@ from sklearn.metrics import (
 from sklearn.model_selection import (
     cross_val_score,
     StratifiedKFold,
-    GridSearchCV
+    GridSearchCV,
+    RandomizedSearchCV
 )
 
 from xgboost import XGBClassifier
@@ -334,6 +335,159 @@ def obter_modelo_selecionado(
 # --------------------------------------------------
 # 13. HYPERPARAMETER TUNING - XGBOOST
 # --------------------------------------------------
+
+def otimizar_xgboost_random(
+    X_train,
+    y_train,
+    random_state=42
+):
+
+    parametros = {
+        "n_estimators": [
+            100,
+            150,
+            200,
+            300,
+            400
+        ],
+
+        "max_depth": [
+            2,
+            3,
+            4,
+            5,
+            6
+        ],
+
+        "learning_rate": [
+            0.01,
+            0.03,
+            0.05,
+            0.10,
+            0.20
+        ],
+
+        "min_child_weight": [
+            1,
+            3,
+            5,
+            7
+        ],
+
+        "subsample": [
+            0.7,
+            0.8,
+            0.9,
+            1.0
+        ],
+
+        "colsample_bytree": [
+            0.7,
+            0.8,
+            0.9,
+            1.0
+        ],
+
+        "gamma": [
+            0,
+            0.1,
+            0.2,
+            0.5
+        ],
+
+        "reg_alpha": [
+            0,
+            0.01,
+            0.1,
+            0.5
+        ],
+
+        "reg_lambda": [
+            1,
+            2,
+            5,
+            10
+        ]
+    }
+
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=random_state
+    )
+
+    modelo = XGBClassifier(
+        objective="binary:logistic",
+        random_state=random_state,
+        eval_metric="logloss"
+    )
+
+    random_search = RandomizedSearchCV(
+        estimator=modelo,
+        param_distributions=parametros,
+        n_iter=50,
+        scoring="recall",
+        cv=cv,
+        random_state=random_state,
+        n_jobs=-1,
+        verbose=1
+    )
+
+    random_search.fit(
+        X_train,
+        y_train
+    )
+
+    return random_search
+
+
+def otimizar_xgboost_refinado(
+    X_train,
+    y_train,
+    random_state=42
+):
+
+    parametros = {
+        "n_estimators": [100, 150, 200],
+        "learning_rate": [0.03, 0.05],
+        "min_child_weight": [5, 7],
+        "gamma": [0.3, 0.5],
+        "reg_lambda": [5, 10],
+
+        "max_depth": [2],
+        "subsample": [0.9],
+        "colsample_bytree": [0.9],
+        "reg_alpha": [0]
+    }
+
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=random_state
+    )
+
+    modelo = XGBClassifier(
+        objective="binary:logistic",
+        random_state=random_state,
+        eval_metric="logloss"
+    )
+
+    grid_search = GridSearchCV(
+        estimator=modelo,
+        param_grid=parametros,
+        scoring="recall",
+        cv=cv,
+        n_jobs=-1,
+        verbose=1
+    )
+
+    grid_search.fit(
+        X_train,
+        y_train
+    )
+
+    return grid_search
+
 
 def otimizar_xgboost(
     X_train,

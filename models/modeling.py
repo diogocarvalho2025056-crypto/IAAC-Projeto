@@ -34,7 +34,8 @@ from src.model_utils import (
     selecionar_melhor_modelo,
     obter_modelo_selecionado,
     otimizar_xgboost,
-    selecionar_baseline_ou_otimizado,
+    otimizar_xgboost_random,
+    otimizar_xgboost_refinado,
     calcular_roc_auc,
     analisar_overfitting
 )
@@ -107,7 +108,7 @@ print("y_test:", y_test.shape)
 
 
 # --------------------------------------------------
-# 4. CRIAR MODELOS
+# 4. CRIAR MODELOS BASELINE
 # --------------------------------------------------
 
 decision_tree = criar_decision_tree()
@@ -332,7 +333,7 @@ for nome, modelo in [
 
 
 # --------------------------------------------------
-# 11. COMPARAR RF E XGBOOST
+# 11. COMPARAR RANDOM FOREST E XGBOOST
 # --------------------------------------------------
 
 previsoes_iguais = (
@@ -498,7 +499,7 @@ print(
 
 
 # --------------------------------------------------
-# 14. SELECIONAR MELHOR MODELO
+# 14. SELECIONAR MELHOR MODELO BASELINE
 # --------------------------------------------------
 
 nome_melhor_modelo = selecionar_melhor_modelo(
@@ -507,7 +508,7 @@ nome_melhor_modelo = selecionar_melhor_modelo(
 )
 
 print("\n======================================")
-print("MODELO SELECIONADO")
+print("MODELO BASELINE SELECIONADO")
 print("======================================")
 
 print(
@@ -524,20 +525,50 @@ melhor_modelo = obter_modelo_selecionado(
 
 
 # --------------------------------------------------
-# 15. HYPERPARAMETER TUNING - XGBOOST
+# 15. RANDOMIZED SEARCH - XGBOOST
 # --------------------------------------------------
+
+print("\n======================================")
+print("RANDOMIZED SEARCH - XGBOOST")
+print("======================================")
+
+random_search = otimizar_xgboost_random(
+    X_train,
+    y_train
+)
+
+print(
+    "\nMelhores parâmetros encontrados:"
+)
+
+print(
+    random_search.best_params_
+)
+
+print(
+    "\nMelhor Recall médio CV:"
+)
+
+print(
+    random_search.best_score_
+)
+
+
+# --------------------------------------------------
+# 16. GRIDSEARCH ORIGINAL - XGBOOST
+# --------------------------------------------------
+
+print("\n======================================")
+print("GRIDSEARCH ORIGINAL - XGBOOST")
+print("======================================")
 
 grid_search = otimizar_xgboost(
     X_train,
     y_train
 )
 
-print("\n======================================")
-print("HYPERPARAMETER TUNING - XGBOOST")
-print("======================================")
-
 print(
-    "Melhores parâmetros:"
+    "\nMelhores parâmetros encontrados:"
 )
 
 print(
@@ -552,64 +583,171 @@ print(
     grid_search.best_score_
 )
 
-xgboost_otimizado = (
+
+# --------------------------------------------------
+# 17. GRIDSEARCH REFINADO - XGBOOST
+# --------------------------------------------------
+
+print("\n======================================")
+print("GRIDSEARCH REFINADO - XGBOOST")
+print("======================================")
+
+grid_refinado = otimizar_xgboost_refinado(
+    X_train,
+    y_train
+)
+
+print(
+    "\nMelhores parâmetros refinados:"
+)
+
+print(
+    grid_refinado.best_params_
+)
+
+print(
+    "\nMelhor Recall médio CV:"
+)
+
+print(
+    grid_refinado.best_score_
+)
+
+
+# --------------------------------------------------
+# 18. OBTER MODELOS RESULTANTES DO TUNING
+# --------------------------------------------------
+
+modelo_grid_original = (
     grid_search.best_estimator_
 )
 
+modelo_random = (
+    random_search.best_estimator_
+)
+
+modelo_refinado = (
+    grid_refinado.best_estimator_
+)
+
 
 # --------------------------------------------------
-# 16. AVALIAR XGBOOST OTIMIZADO
+# 19. AVALIAR TODAS AS VERSÕES XGBOOST
+#     NO CONJUNTO DE VALIDAÇÃO
 # --------------------------------------------------
 
-y_pred_val_xgb_otimizado = prever(
-    xgboost_otimizado,
+y_pred_grid_original = prever(
+    modelo_grid_original,
     X_val
 )
 
-(
-    resultado_xgb_otimizado,
-    matriz_xgb_otimizado,
-    relatorio_xgb_otimizado
-) = avaliar_modelo(
-    "XGBoost Otimizado",
+y_pred_random = prever(
+    modelo_random,
+    X_val
+)
+
+y_pred_refinado = prever(
+    modelo_refinado,
+    X_val
+)
+
+
+resultado_grid_original, matriz_grid_original, relatorio_grid_original = avaliar_modelo(
+    "XGBoost GridSearch Original",
     y_val,
-    y_pred_val_xgb_otimizado,
+    y_pred_grid_original,
     ["Benigno", "Malware"]
 )
 
-mostrar_resultados(
-    resultado_xgb_otimizado,
-    matriz_xgb_otimizado,
-    relatorio_xgb_otimizado
+resultado_random, matriz_random, relatorio_random = avaliar_modelo(
+    "XGBoost RandomizedSearch",
+    y_val,
+    y_pred_random,
+    ["Benigno", "Malware"]
+)
+
+resultado_refinado, matriz_refinado, relatorio_refinado = avaliar_modelo(
+    "XGBoost GridSearch Refinado",
+    y_val,
+    y_pred_refinado,
+    ["Benigno", "Malware"]
 )
 
 
-comparacao_xgb = pd.DataFrame([
+# --------------------------------------------------
+# 20. COMPARAÇÃO FINAL DO TUNING
+# --------------------------------------------------
+
+comparacao_tuning = pd.DataFrame([
     resultado_xgb,
-    resultado_xgb_otimizado
+    resultado_grid_original,
+    resultado_random,
+    resultado_refinado
 ])
 
-print(
-    "\n--- XGBOOST BASELINE VS OTIMIZADO ---"
-)
+print("\n======================================")
+print("COMPARAÇÃO FINAL DO TUNING")
+print("======================================")
 
 print(
-    comparacao_xgb
+    comparacao_tuning
 )
 
 
 # --------------------------------------------------
-# 17. SELECIONAR BASELINE OU OTIMIZADO
+# 21. SELECIONAR VERSÃO FINAL DO XGBOOST
+# --------------------------------------------------
+#
+# Critério:
+#
+# 1.º Recall
+# 2.º F1-score
+# 3.º Accuracy
+#
+# O baseline aparece primeiro.
+# Em caso de empate total, mantém-se o baseline.
 # --------------------------------------------------
 
-modelo_final, nome_modelo_final = (
-    selecionar_baseline_ou_otimizado(
-        resultado_xgb,
-        resultado_xgb_otimizado,
+candidatos_xgboost = [
+    (
+        "XGBoost Baseline",
         xgboost,
-        xgboost_otimizado
+        resultado_xgb
+    ),
+    (
+        "XGBoost GridSearch Original",
+        modelo_grid_original,
+        resultado_grid_original
+    ),
+    (
+        "XGBoost RandomizedSearch",
+        modelo_random,
+        resultado_random
+    ),
+    (
+        "XGBoost GridSearch Refinado",
+        modelo_refinado,
+        resultado_refinado
     )
+]
+
+
+def criterio_selecao(item):
+
+    resultado = item[2]
+
+    return (
+        resultado["Recall"],
+        resultado["F1-score"],
+        resultado["Accuracy"]
+    )
+
+
+nome_modelo_final, modelo_final, resultado_validacao_final = max(
+    candidatos_xgboost,
+    key=criterio_selecao
 )
+
 
 print("\n======================================")
 print("MODELO FINAL APÓS TUNING")
@@ -622,7 +760,88 @@ print(
 
 
 # --------------------------------------------------
-# 18. AVALIAÇÃO FINAL NO TESTE
+# 22. ANÁLISE DE OVERFITTING
+# --------------------------------------------------
+
+overfitting_dt = analisar_overfitting(
+    "Decision Tree",
+    decision_tree,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+overfitting_rf = analisar_overfitting(
+    "Random Forest",
+    random_forest,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+overfitting_xgb = analisar_overfitting(
+    "XGBoost Baseline",
+    xgboost,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+overfitting_grid = analisar_overfitting(
+    "XGBoost GridSearch Original",
+    modelo_grid_original,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+overfitting_random = analisar_overfitting(
+    "XGBoost RandomizedSearch",
+    modelo_random,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+overfitting_refinado = analisar_overfitting(
+    "XGBoost GridSearch Refinado",
+    modelo_refinado,
+    X_train,
+    y_train,
+    X_val,
+    y_val
+)
+
+
+comparacao_overfitting = pd.DataFrame([
+    overfitting_dt,
+    overfitting_rf,
+    overfitting_xgb,
+    overfitting_grid,
+    overfitting_random,
+    overfitting_refinado
+])
+
+print(
+    "\n--- ANÁLISE DE OVERFITTING ---"
+)
+
+print(
+    comparacao_overfitting
+)
+
+
+# --------------------------------------------------
+# 23. AVALIAÇÃO FINAL NO TESTE
+# --------------------------------------------------
+#
+# Só agora utilizamos o conjunto de teste.
+# O teste não é usado para escolher hiperparâmetros.
 # --------------------------------------------------
 
 y_pred_test = prever(
@@ -634,12 +853,14 @@ y_pred_test = prever(
     resultado_final,
     matriz_final,
     relatorio_final
+
 ) = avaliar_modelo(
     nome_modelo_final + " - Teste Final",
     y_test,
     y_pred_test,
     ["Benigno", "Malware"]
 )
+
 
 print("\n======================================")
 print("AVALIAÇÃO FINAL NO CONJUNTO DE TESTE")
@@ -653,7 +874,7 @@ mostrar_resultados(
 
 
 # --------------------------------------------------
-# 19. ROC-AUC
+# 24. ROC-AUC
 # --------------------------------------------------
 
 auc, fpr, tpr, thresholds = calcular_roc_auc(
@@ -712,63 +933,7 @@ plt.show()
 
 
 # --------------------------------------------------
-# 20. ANÁLISE DE OVERFITTING
-# --------------------------------------------------
-
-overfitting_dt = analisar_overfitting(
-    "Decision Tree",
-    decision_tree,
-    X_train,
-    y_train,
-    X_val,
-    y_val
-)
-
-overfitting_rf = analisar_overfitting(
-    "Random Forest",
-    random_forest,
-    X_train,
-    y_train,
-    X_val,
-    y_val
-)
-
-overfitting_xgb = analisar_overfitting(
-    "XGBoost Baseline",
-    xgboost,
-    X_train,
-    y_train,
-    X_val,
-    y_val
-)
-
-overfitting_xgb_otimizado = analisar_overfitting(
-    "XGBoost Otimizado",
-    xgboost_otimizado,
-    X_train,
-    y_train,
-    X_val,
-    y_val
-)
-
-
-comparacao_overfitting = pd.DataFrame([
-    overfitting_dt,
-    overfitting_rf,
-    overfitting_xgb,
-    overfitting_xgb_otimizado
-])
-
-print(
-    "\n--- ANÁLISE DE OVERFITTING ---"
-)
-
-print(
-    comparacao_overfitting
-)
-
-# --------------------------------------------------
-# 21. GRÁFICO - ACCURACY DOS MODELOS NA VALIDAÇÃO
+# 25. GRÁFICO - ACCURACY DOS MODELOS BASELINE
 # --------------------------------------------------
 
 accuracy_modelos = tabela_validacao[
@@ -808,8 +973,9 @@ plt.tight_layout()
 
 plt.show()
 
+
 # --------------------------------------------------
-# 22. GRÁFICO - COMPARAÇÃO DAS MÉTRICAS NA VALIDAÇÃO
+# 26. GRÁFICO - MÉTRICAS DOS MODELOS BASELINE
 # --------------------------------------------------
 
 metricas_validacao = tabela_validacao.set_index(
@@ -859,7 +1025,7 @@ plt.show()
 
 
 # --------------------------------------------------
-# 23. GRÁFICO - CROSS-VALIDATION
+# 27. GRÁFICO - CROSS-VALIDATION
 # --------------------------------------------------
 
 metricas_cv = tabela_cv.set_index(
@@ -871,7 +1037,7 @@ metricas_cv = tabela_cv.set_index(
     ]
 ]
 
-ax = metricas_cv.plot(
+metricas_cv.plot(
     kind="bar",
     figsize=(9, 6)
 )
@@ -905,8 +1071,59 @@ plt.tight_layout()
 
 plt.show()
 
+
 # --------------------------------------------------
-# 24. GRÁFICO - TREINO VS VALIDAÇÃO
+# 28. GRÁFICO - COMPARAÇÃO DAS VERSÕES XGBOOST
+# --------------------------------------------------
+
+metricas_tuning = comparacao_tuning.set_index(
+    "Modelo"
+)[
+    [
+        "Accuracy",
+        "Precision",
+        "Recall",
+        "F1-score"
+    ]
+]
+
+metricas_tuning.plot(
+    kind="bar",
+    figsize=(12, 6)
+)
+
+plt.title(
+    "Comparação das Versões do XGBoost"
+)
+
+plt.xlabel(
+    "Modelo"
+)
+
+plt.ylabel(
+    "Resultado"
+)
+
+plt.ylim(
+    0.95,
+    1.00
+)
+
+plt.xticks(
+    rotation=15
+)
+
+plt.legend(
+    title="Métrica"
+)
+
+plt.tight_layout()
+
+plt.show()
+
+
+# --------------------------------------------------
+# 29. GRÁFICO - TREINO VS VALIDAÇÃO
 # --------------------------------------------------
 
 dados_overfitting = comparacao_overfitting.set_index(
@@ -918,9 +1135,9 @@ dados_overfitting = comparacao_overfitting.set_index(
     ]
 ]
 
-ax = dados_overfitting.plot(
+dados_overfitting.plot(
     kind="bar",
-    figsize=(10, 6)
+    figsize=(12, 6)
 )
 
 plt.title(
@@ -941,7 +1158,7 @@ plt.ylim(
 )
 
 plt.xticks(
-    rotation=15
+    rotation=20
 )
 
 plt.legend()
@@ -952,15 +1169,15 @@ plt.show()
 
 
 # --------------------------------------------------
-# 25. GRÁFICO - TOP 10 FEATURES XGBOOST
+# 30. GRÁFICO - TOP 10 FEATURES DO MODELO FINAL
 # --------------------------------------------------
 
-importancias_xgb = importancia_features(
-    xgboost,
+importancias_finais = importancia_features(
+    modelo_final,
     X.columns
 ).head(10)
 
-importancias_xgb = importancias_xgb.sort_values(
+importancias_finais = importancias_finais.sort_values(
     by="Importancia"
 )
 
@@ -969,12 +1186,12 @@ plt.figure(
 )
 
 plt.barh(
-    importancias_xgb["Feature"],
-    importancias_xgb["Importancia"]
+    importancias_finais["Feature"],
+    importancias_finais["Importancia"]
 )
 
 plt.title(
-    "Top 10 Features mais importantes - XGBoost"
+    f"Top 10 Features - {nome_modelo_final}"
 )
 
 plt.xlabel(
@@ -988,3 +1205,68 @@ plt.ylabel(
 plt.tight_layout()
 
 plt.show()
+
+# --------------------------------------------------
+# 31. GUARDAR MODELO FINAL
+# --------------------------------------------------
+
+import json
+
+
+# Criar pasta models, caso ainda não exista
+pasta_models = pasta_projeto / "models"
+
+pasta_models.mkdir(
+    exist_ok=True
+)
+
+
+# --------------------------------------------------
+# GUARDAR MODELO XGBOOST
+# --------------------------------------------------
+
+caminho_modelo = (
+    pasta_models
+    / "malware_xgboost.json"
+)
+
+modelo_final.save_model(
+    caminho_modelo
+)
+
+print(
+    "\nModelo guardado em:",
+    caminho_modelo
+)
+
+
+# --------------------------------------------------
+# GUARDAR LISTA DE FEATURES
+# --------------------------------------------------
+
+features = list(
+    X.columns
+)
+
+caminho_features = (
+    pasta_models
+    / "malware_features.json"
+)
+
+with open(
+    caminho_features,
+    "w",
+    encoding="utf-8"
+) as ficheiro:
+
+    json.dump(
+        features,
+        ficheiro,
+        indent=4,
+        ensure_ascii=False
+    )
+
+print(
+    "Features guardadas em:",
+    caminho_features
+)
