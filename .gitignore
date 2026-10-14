@@ -4,8 +4,8 @@ venv/
 env/
 
 # Ficheiros de dados pesados e temporários
-data/raw/
-data/processed/
+# data/raw/
+# data/processed/
 
 # Modelos gerados
 models/*.pkl
