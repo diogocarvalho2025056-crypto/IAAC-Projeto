@@ -1,0 +1,57 @@
+{
+  "best_params": {
+    "subsample": 0.8,
+    "reg_lambda": 5,
+    "n_estimators": 500,
+    "min_child_weight": 3,
+    "max_depth": 8,
+    "learning_rate": 0.2,
+    "colsample_bytree": 0.7
+  },
+  "best_cv_phishing_recall": 0.9615069695775255,
+  "test_accuracy": 0.965938864628821,
+  "test_precision_legitimate_class_1": 0.9493891797556719,
+  "test_recall_legitimate_class_1": 0.9819494584837545,
+  "test_recall_phishing_class_0": 0.9509306260575296,
+  "test_f1_macro": 0.9659304448535555,
+  "test_roc_auc": 0.9951437629423299,
+  "test_pr_auc_for_legitimate_class_1": 0.9947488659565181,
+  "confusion_matrix_labels_0_phishing_1_legitimate": [
+    [
+      562,
+      29
+    ],
+    [
+      10,
+      544
+    ]
+  ],
+  "classification_report": {
+    "Phishing (0)": {
+      "precision": 0.9825174825174825,
+      "recall": 0.9509306260575296,
+      "f1-score": 0.9664660361134996,
+      "support": 591.0
+    },
+    "Legitimate (1)": {
+      "precision": 0.9493891797556719,
+      "recall": 0.9819494584837545,
+      "f1-score": 0.9653948535936113,
+      "support": 554.0
+    },
+    "accuracy": 0.965938864628821,
+    "macro avg": {
+      "precision": 0.9659533311365772,
+      "recall": 0.9664400422706421,
+      "f1-score": 0.9659304448535555,
+      "support": 1145.0
+    },
+    "weighted avg": {
+      "precision": 0.9664885919235584,
+      "recall": 0.965938864628821,
+      "f1-score": 0.9659477521693789,
+      "support": 1145.0
+    }
+  },
+  "note": "Compare these test metrics with the original model; tuning optimizes phishing recall on CV folds."
+}
