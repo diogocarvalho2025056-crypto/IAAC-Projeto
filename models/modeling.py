@@ -766,3 +766,225 @@ print(
 print(
     comparacao_overfitting
 )
+
+# --------------------------------------------------
+# 21. GRÁFICO - ACCURACY DOS MODELOS NA VALIDAÇÃO
+# --------------------------------------------------
+
+accuracy_modelos = tabela_validacao[
+    [
+        "Modelo",
+        "Accuracy"
+    ]
+].copy()
+
+plt.figure(
+    figsize=(8, 5)
+)
+
+plt.bar(
+    accuracy_modelos["Modelo"],
+    accuracy_modelos["Accuracy"]
+)
+
+plt.title(
+    "Accuracy dos Modelos - Validação"
+)
+
+plt.xlabel(
+    "Modelo"
+)
+
+plt.ylabel(
+    "Accuracy"
+)
+
+plt.ylim(
+    0.95,
+    1.00
+)
+
+plt.tight_layout()
+
+plt.show()
+
+# --------------------------------------------------
+# 22. GRÁFICO - COMPARAÇÃO DAS MÉTRICAS NA VALIDAÇÃO
+# --------------------------------------------------
+
+metricas_validacao = tabela_validacao.set_index(
+    "Modelo"
+)[
+    [
+        "Accuracy",
+        "Precision",
+        "Recall",
+        "F1-score"
+    ]
+]
+
+metricas_validacao.plot(
+    kind="bar",
+    figsize=(10, 6)
+)
+
+plt.title(
+    "Comparação das Métricas dos Modelos - Validação"
+)
+
+plt.xlabel(
+    "Modelo"
+)
+
+plt.ylabel(
+    "Resultado"
+)
+
+plt.ylim(
+    0.95,
+    1.00
+)
+
+plt.xticks(
+    rotation=0
+)
+
+plt.legend(
+    title="Métrica"
+)
+
+plt.tight_layout()
+
+plt.show()
+
+
+# --------------------------------------------------
+# 23. GRÁFICO - CROSS-VALIDATION
+# --------------------------------------------------
+
+metricas_cv = tabela_cv.set_index(
+    "Modelo"
+)[
+    [
+        "Recall CV",
+        "F1 CV"
+    ]
+]
+
+ax = metricas_cv.plot(
+    kind="bar",
+    figsize=(9, 6)
+)
+
+plt.title(
+    "Comparação dos Modelos - 5-Fold Cross-Validation"
+)
+
+plt.xlabel(
+    "Modelo"
+)
+
+plt.ylabel(
+    "Resultado médio"
+)
+
+plt.ylim(
+    0.97,
+    1.00
+)
+
+plt.xticks(
+    rotation=0
+)
+
+plt.legend(
+    title="Métrica"
+)
+
+plt.tight_layout()
+
+plt.show()
+
+# --------------------------------------------------
+# 24. GRÁFICO - TREINO VS VALIDAÇÃO
+# --------------------------------------------------
+
+dados_overfitting = comparacao_overfitting.set_index(
+    "Modelo"
+)[
+    [
+        "Accuracy treino",
+        "Accuracy validação"
+    ]
+]
+
+ax = dados_overfitting.plot(
+    kind="bar",
+    figsize=(10, 6)
+)
+
+plt.title(
+    "Accuracy - Treino vs Validação"
+)
+
+plt.xlabel(
+    "Modelo"
+)
+
+plt.ylabel(
+    "Accuracy"
+)
+
+plt.ylim(
+    0.95,
+    1.01
+)
+
+plt.xticks(
+    rotation=15
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.show()
+
+
+# --------------------------------------------------
+# 25. GRÁFICO - TOP 10 FEATURES XGBOOST
+# --------------------------------------------------
+
+importancias_xgb = importancia_features(
+    xgboost,
+    X.columns
+).head(10)
+
+importancias_xgb = importancias_xgb.sort_values(
+    by="Importancia"
+)
+
+plt.figure(
+    figsize=(9, 6)
+)
+
+plt.barh(
+    importancias_xgb["Feature"],
+    importancias_xgb["Importancia"]
+)
+
+plt.title(
+    "Top 10 Features mais importantes - XGBoost"
+)
+
+plt.xlabel(
+    "Importância"
+)
+
+plt.ylabel(
+    "Feature"
+)
+
+plt.tight_layout()
+
+plt.show()
