@@ -11,19 +11,21 @@ def clean_and_transform_features(df: pd.DataFrame) -> pd.DataFrame:
     
     # 1. Eliminar identificadores unívocos
     drop_cols = ['md5', 'sha1', 'file_extension']
-    df_clean = df_clean.drop(columns=[col for col in drop_cols if col in df_clean.columns])
     
-    # 2. Converter valores hexadecimais para inteiros decimais
-    hex_cols = ['EntryPoint', 'SizeOfCode', 'SizeOfInitializedData', 'SizeOfUninitializedData', 
-                'AddressOfEntryPoint', 'BaseOfCode', 'BaseOfData', 'ImageBase', 'SectionAlignment', 
-                'FileAlignment', 'SizeOfImage', 'SizeOfHeaders', 'Checksum']
+    # 2. Eliminar colunas nulas ou constantes (como network_threats se estiver a 0/NaN)
+    # e redundantes (ex: registry_total)
+    redundant_cols = ['registry_total']
     
-    for col in hex_cols:
-        if col in df_clean.columns:
-            df_clean[col] = df_clean[col].astype(str).apply(
-                lambda x: int(x.split()[0], 16) if (isinstance(x, str) and (x.startswith('0x') or x.startswith('0X'))) 
-                else (int(x) if str(x).isdigit() else 0)
-            )
+    df_clean = df_clean.drop(columns=[col for col in drop_cols + redundant_cols if col in df_clean.columns])
+    
+    # Remover colunas que só têm 1 único valor ou são 100% NaN
+    for col in df_clean.columns:
+        if df_clean[col].nunique() <= 1 or df_clean[col].isnull().all():
+            df_clean = df_clean.drop(columns=[col])
+
+    # Tratar eventuais NAs restantes preenchendo com 0 nas variáveis numéricas
+    num_cols = df_clean.select_dtypes(include=[np.number]).columns
+    df_clean[num_cols] = df_clean[num_cols].fillna(0)
             
     # 3. Processar listas em texto (ex: DllCharacteristics)
     if 'DllCharacteristics' in df_clean.columns:
