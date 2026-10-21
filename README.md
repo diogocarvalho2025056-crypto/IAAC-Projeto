@@ -1,12 +1,12 @@
 # IAAC-Projeto
 
-Projeto desenvolvido no âmbito da unidade curricular de **Inteligência Artificial Aplicada à Cibersegurança**, com aplicação de técnicas de Machine Learning a três áreas de cibersegurança:
+Projeto desenvolvido no âmbito da unidade curricular de **Inteligência Artificial Aplicada à Cibersegurança**, aplicando Machine Learning e agentes de IA a três áreas de cibersegurança:
 
 - **Malware** — José Maria Alves
 - **Ransomware** — Tomás Matos
 - **Phishing** — Diogo Carvalho
 
-O projeto segue uma metodologia estruturada de Machine Learning, desde a compreensão do problema e dos dados até à preparação, construção, avaliação e otimização dos modelos.
+A gestão do projeto segue **SCRUM** e a implementação técnica segue **CRISP-ML**, desde a compreensão do problema até à fase de deployment.
 
 ---
 
@@ -15,29 +15,32 @@ O projeto segue uma metodologia estruturada de Machine Learning, desde a compree
 Os principais objetivos do projeto são:
 
 - analisar datasets relacionados com ameaças de cibersegurança;
-- realizar análise exploratória dos dados;
-- identificar problemas de qualidade, redundâncias e relações entre features;
-- preparar os dados para modelação;
-- treinar e comparar modelos supervisionados;
+- realizar Business Understanding, Data Understanding e EDA;
+- preparar os dados de forma reprodutível;
+- treinar e comparar vários modelos de classificação;
 - avaliar os modelos com métricas adequadas ao contexto;
-- aplicar validação cruzada e otimização de hiperparâmetros;
-- organizar o código de forma modular e reutilizável;
-- garantir execução em ambiente local e em Google Colab.
+- aplicar cross-validation e otimização de hiperparâmetros;
+- selecionar e persistir o melhor modelo de cada tema;
+- criar módulos de inferência reutilizáveis;
+- integrar classificadores com agentes especializados;
+- utilizar um agente generativo para produzir relatórios;
+- preparar uma arquitetura multiagente extensível a OpenClaw, CrewAI, n8n e interfaces como Telegram.
 
 ---
 
 ## Temas
 
 ### Malware
+
 Classificação binária de ficheiros executáveis em:
 
 - `0` — Benigno
-- `1` — Malicioso
+- `1` — Malware
 
 Dataset utilizado:
 
 **Malware Detection Dataset with New Malware Info**  
-Autor no Kaggle: `aashishzzz`
+Kaggle: `aashishzzz/malware-detection-dataset-with-new-malware-info`
 
 Ficheiro principal:
 
@@ -45,26 +48,28 @@ Ficheiro principal:
 Malware_and_benign_recognition.csv
 ```
 
-O dataset é importado diretamente do Kaggle através de `kagglehub`.
-
 ### Ransomware
-Análise e classificação de amostras associadas a ransomware.
+
+Classificação de amostras associadas a ransomware.
 
 ### Phishing
-Classificação de websites como legítimos ou phishing com base nas respetivas características.
+
+Classificação de websites como legítimos ou phishing.
 
 ---
 
 ## Metodologia
 
-O projeto inclui as seguintes fases:
+O projeto segue as fases principais do CRISP-ML:
 
-1. **Business Understanding**
-2. **Data Understanding**
-3. **Exploratory Data Analysis (EDA)**
-4. **Data Preparation**
-5. **Model Building**
-6. **Model Evaluation & Optimization**
+1. Business Understanding
+2. Data Understanding
+3. Exploratory Data Analysis
+4. Data Preparation
+5. Model Building
+6. Model Evaluation & Optimization
+7. Deployment
+8. Integração com agentes
 
 Na fase de modelação foram definidos três algoritmos comuns ao grupo:
 
@@ -74,42 +79,46 @@ Na fase de modelação foram definidos três algoritmos comuns ao grupo:
 
 ---
 
-## Estrutura do projeto
+## Estrutura atual do projeto
 
 ```text
 IAAC-Projeto/
 │
 ├── Business_understanding/
-│   ├── Business_Understanding_Malware.docx
-│   ├── Data_Understanding_Malware.docx
-│   ├── Machine Learning Canvas - Malware.docx
-│   └── EAD_script.py
 │
 ├── Data_Preparation/
-│   ├── Data_Preparation_Malware.docx
-│   └── data_preparation.py
 │
 ├── dataset/
-│   ├── benign.csv
-│   ├── malware.csv
 │   ├── Malware_and_benign_recognition.csv
 │   └── Malware_prepared.csv
 │
 ├── models/
-│   └── model.py
+│   ├── malware_xgboost.json
+│   ├── malware_features.json
+│   └── malware_model.md
 │
 ├── notebooks/
 │   ├── data_understanding.ipynb
 │   ├── data_preparation.ipynb
-│   └── model_building.ipynb
+│   ├── model_building.ipynb
+│   └── deployment_malware.ipynb
 │
 ├── src/
 │   ├── data_preparation_utils.py
 │   ├── eda_utils.py
-│   └── model_utils.py
+│   ├── model_utils.py
+│   ├── malware_inference.py
+│   ├── malware_agent.py
+│   ├── report_agent.py
+│   └── orchestrator.py
 │
-├── references/
-├── reports/
+├── tests/
+│   ├── test_malware_inference.py
+│   ├── test_malware_agent.py
+│   ├── test_report_agent.py
+│   └── test_orchestrator.py
+│
+├── main.py
 ├── requirements.txt
 ├── LICENSE
 └── README.md
@@ -117,7 +126,9 @@ IAAC-Projeto/
 
 ---
 
-## Preparação dos dados — Malware
+# Malware
+
+## Data Preparation
 
 O dataset original contém:
 
@@ -126,7 +137,7 @@ O dataset original contém:
 27 colunas
 ```
 
-Durante a preparação foram removidas as colunas:
+Foram removidas:
 
 ```text
 File
@@ -134,7 +145,7 @@ SuspiciousSectionNames
 SectionCount
 ```
 
-Após a remoção de duplicados completos:
+Depois da remoção de duplicados:
 
 ```text
 1148 registos
@@ -145,10 +156,10 @@ A modelação utiliza:
 
 ```text
 23 features
-1 variável target: Malicious
+1 target: Malicious
 ```
 
-Os dados são divididos de forma estratificada em:
+Divisão estratificada:
 
 ```text
 70% treino
@@ -156,27 +167,25 @@ Os dados são divididos de forma estratificada em:
 15% teste
 ```
 
-Dimensões finais:
+Dimensões:
 
 ```text
-Treino:     803 amostras
-Validação:  172 amostras
-Teste:      173 amostras
+Treino:     803
+Validação:  172
+Teste:      173
 ```
 
 ---
 
-## Model Building — Malware
+## Model Building
 
-Foram treinados três modelos baseline:
+Foram treinados:
 
-```text
-Decision Tree
-Random Forest
-XGBoost
-```
+- Decision Tree
+- Random Forest
+- XGBoost
 
-No conjunto de validação, os três modelos apresentaram resultados idênticos:
+No conjunto de validação, os três modelos apresentaram:
 
 | Métrica | Resultado |
 |---|---:|
@@ -185,7 +194,7 @@ No conjunto de validação, os três modelos apresentaram resultados idênticos:
 | Recall | 98,82% |
 | F1-score | 98,25% |
 
-Como os modelos ficaram empatados na validação, foi utilizada **Stratified 5-Fold Cross-Validation** sobre o conjunto de treino.
+Como os três modelos ficaram empatados, foi utilizada **Stratified 5-Fold Cross-Validation**.
 
 ### Cross-validation
 
@@ -195,39 +204,54 @@ Como os modelos ficaram empatados na validação, foi utilizada **Stratified 5-F
 | Random Forest | 99,75% | 99,12% |
 | XGBoost | 99,75% | 99,37% |
 
-O **XGBoost** foi selecionado por apresentar o maior F1-score médio entre os modelos com melhor Recall.
+O **XGBoost** foi selecionado como melhor baseline.
 
 ---
 
 ## Hyperparameter Tuning
 
-Foi utilizado `GridSearchCV`, com otimização orientada para o **Recall**.
+Foram testadas três estratégias:
 
-Os melhores parâmetros encontrados foram:
+1. GridSearchCV original
+2. RandomizedSearchCV
+3. GridSearchCV refinado
 
-```python
-{
-    "learning_rate": 0.05,
-    "max_depth": 2,
-    "n_estimators": 100,
-    "reg_alpha": 0,
-    "reg_lambda": 1
-}
+Todas atingiram o mesmo melhor Recall médio em cross-validation:
+
+```text
+99,7468%
 ```
 
-O XGBoost otimizado apresentou os mesmos resultados do baseline no conjunto de validação.
+Também apresentaram exatamente as mesmas métricas do baseline no conjunto de validação.
 
-Por esse motivo, foi mantido como modelo final:
+Por esse motivo, foi mantido:
 
 ```text
 XGBoost Baseline
 ```
 
+A decisão segue o princípio **Keep it simple**: se uma configuração mais complexa não melhora o desempenho, mantém-se a solução mais simples.
+
 ---
 
-## Resultados finais — Malware
+## Overfitting
 
-No conjunto de teste reservado, o modelo final apresentou:
+| Modelo | Accuracy treino | Accuracy validação | Gap |
+|---|---:|---:|---:|
+| Decision Tree | 100,00% | 98,26% | 1,74 p.p. |
+| Random Forest | 100,00% | 98,26% | 1,74 p.p. |
+| XGBoost Baseline | 100,00% | 98,26% | 1,74 p.p. |
+| GridSearch Original | 99,25% | 98,26% | 1,00 p.p. |
+| RandomizedSearch | 98,88% | 98,26% | 0,62 p.p. |
+| GridSearch Refinado | 98,63% | 98,26% | 0,37 p.p. |
+
+As versões otimizadas reduziram o gap treino-validação, mas não melhoraram as métricas de validação.
+
+---
+
+## Resultados finais
+
+No conjunto de teste reservado:
 
 | Métrica | Resultado |
 |---|---:|
@@ -247,129 +271,300 @@ Real Benigno      84       4
 Real Malware       0      85
 ```
 
-Resultados relevantes:
+Resultados:
 
 - 85 amostras de malware corretamente detetadas;
 - 0 falsos negativos;
-- 4 falsos positivos;
-- Recall de 100% no conjunto de teste.
-
-Num contexto de deteção de malware, a ausência de falsos negativos é particularmente relevante, uma vez que nenhum ficheiro malicioso do conjunto de teste foi classificado como benigno.
+- 4 falsos positivos.
 
 ---
 
-## Overfitting
+# Deployment — Malware
 
-Comparação entre treino e validação:
+## Persistência do modelo
 
-| Modelo | Accuracy treino | Accuracy validação | Diferença |
-|---|---:|---:|---:|
-| Decision Tree | 100,00% | 98,26% | 1,74 p.p. |
-| Random Forest | 100,00% | 98,26% | 1,74 p.p. |
-| XGBoost Baseline | 100,00% | 98,26% | 1,74 p.p. |
-| XGBoost Otimizado | 99,25% | 98,26% | 1,00 p.p. |
-
-Os resultados não evidenciam underfitting nem overfitting severo.
-
----
-
-## Principais features — Malware
-
-Entre as features com maior importância nos modelos encontram-se:
+O modelo final é guardado em:
 
 ```text
-ImageBase
-SizeOfHeaders
-BaseOfData
-Characteristics
-DllCharacteristics
-ImportedDLLs
-SizeOfImage
-MaxSectionEntropy
-OverlaySize
+models/malware_xgboost.json
 ```
 
-A importância atribuída a cada feature varia consoante o algoritmo utilizado.
+A lista ordenada das 23 features é guardada em:
 
----
-
-## Instalação
-
-Recomenda-se a utilização de Python 3 e de um ambiente virtual.
-
-### Clonar o repositório
-
-```bash
-git clone https://github.com/diogocarvalho2025056-crypto/IAAC-Projeto.git
-cd IAAC-Projeto
+```text
+models/malware_features.json
 ```
 
-### Instalar dependências
+A ficha técnica do modelo encontra-se em:
 
-```bash
-pip install -r requirements.txt
-```
-
-Nos notebooks poderá também ser necessário:
-
-```python
-%pip install -q kagglehub[pandas-datasets]
-%pip install -q xgboost
-%pip install -q matplotlib
+```text
+models/malware_model.md
 ```
 
 ---
 
-## Execução
+## Inferência
 
-### Notebook
+O módulo:
 
-O fluxo completo de modelação de malware pode ser executado em:
+```text
+src/malware_inference.py
+```
+
+é responsável por:
+
+- carregar o modelo persistido;
+- carregar as features esperadas;
+- validar novas amostras;
+- garantir a ordem das features;
+- executar a previsão;
+- devolver classe, confiança e probabilidades.
+
+O modelo não é treinado novamente durante a inferência.
+
+---
+
+## Validação de entradas
+
+Antes da previsão são validados:
+
+- tipo da entrada;
+- features obrigatórias;
+- features inesperadas;
+- valores não numéricos;
+- valores NaN.
+
+Testes implementados:
+
+| Teste | Comportamento |
+|---|---|
+| Amostra benigna válida | Classificação normal |
+| Amostra malware válida | Classificação normal |
+| Feature em falta | Erro controlado |
+| Valor não numérico | Erro controlado |
+| Feature extra | Erro controlado |
+| NaN | Erro controlado |
+| Entrada inválida | Erro controlado |
+
+---
+
+## Agente de Malware
+
+O módulo:
+
+```text
+src/malware_agent.py
+```
+
+encapsula a inferência e transforma o resultado técnico numa resposta estruturada.
+
+Responsabilidades:
+
+```text
+XGBoost
+→ decide a classe
+
+Malware Agent
+→ organiza e apresenta o resultado
+```
+
+---
+
+## Agente generativo
+
+O módulo:
+
+```text
+src/report_agent.py
+```
+
+utiliza:
+
+```text
+Transformers / Hugging Face
+Qwen2.5-1.5B-Instruct
+```
+
+O LLM recebe o resultado já produzido pelo classificador e gera um pequeno relatório em linguagem natural.
+
+O agente generativo não decide a classificação.
+
+Fluxo:
+
+```text
+XGBoost
+   ↓
+classificação + probabilidades
+   ↓
+Malware Agent
+   ↓
+Report Agent
+   ↓
+relatório
+```
+
+O prompt inclui regras para evitar que o modelo:
+
+- altere a classificação;
+- invente features;
+- invente métricas;
+- confunda confiança de uma previsão com Accuracy global;
+- apresente a previsão como uma certeza absoluta.
+
+---
+
+## Orquestrador
+
+O módulo:
+
+```text
+src/orchestrator.py
+```
+
+coordena o fluxo entre agentes.
+
+Arquitetura atual:
+
+```text
+Utilizador
+   ↓
+main.py
+   ↓
+orchestrator.py
+   ↓
+malware_agent.py
+   ↓
+malware_inference.py
+   ↓
+XGBoost
+   ↓
+resultado técnico
+   ↓
+report_agent.py
+   ↓
+relatório
+```
+
+A arquitetura foi preparada para adicionar posteriormente:
+
+```text
+Ransomware Agent
+Phishing Agent
+```
+
+---
+
+## Interface de demonstração
+
+O ficheiro:
+
+```text
+main.py
+```
+
+disponibiliza um menu de terminal:
+
+```text
+1 - Malware
+2 - Ransomware
+3 - Phishing
+0 - Sair
+```
+
+Nesta fase, apenas Malware está totalmente integrado.
+
+Para Malware é possível testar amostras benignas ou maliciosas e visualizar:
+
+- classificação;
+- confiança;
+- probabilidade Benigno;
+- probabilidade Malware;
+- relatório gerado pelo agente.
+
+---
+
+## Notebooks
+
+### Model Building
 
 ```text
 notebooks/model_building.ipynb
 ```
 
-O notebook:
+Inclui:
 
-1. importa o dataset diretamente do Kaggle;
-2. reaplica a preparação dos dados;
-3. divide os dados em treino, validação e teste;
-4. treina os três modelos;
-5. avalia os modelos;
-6. realiza cross-validation;
-7. seleciona o melhor modelo;
-8. executa Hyperparameter Tuning;
-9. compara baseline e versão otimizada;
-10. realiza a avaliação final;
-11. calcula ROC-AUC;
-12. analisa possíveis sinais de overfitting.
+- importação direta do Kaggle;
+- Data Preparation;
+- treino;
+- validação;
+- cross-validation;
+- tuning;
+- seleção final;
+- teste reservado;
+- ROC-AUC;
+- gráficos;
+- persistência do modelo.
 
-### Script
-
-Também pode ser utilizado o script:
+### Deployment Malware
 
 ```text
-models/model.py
+notebooks/deployment_malware.ipynb
 ```
 
-A lógica reutilizável dos modelos encontra-se em:
+Inclui:
+
+- carregamento do modelo persistido;
+- inferência;
+- testes de robustez;
+- Malware Agent;
+- agente generativo;
+- orquestrador.
+
+Mais tarde será criado um notebook global semelhante a:
 
 ```text
-src/model_utils.py
+notebooks/multiagent_system.ipynb
+```
+
+para integrar os três temas.
+
+---
+
+## Instalação
+
+```bash
+git clone https://github.com/diogocarvalho2025056-crypto/IAAC-Projeto.git
+cd IAAC-Projeto
+pip install -r requirements.txt
+```
+
+Dependências principais desta fase:
+
+```bash
+pip install pandas scikit-learn xgboost matplotlib
+pip install kagglehub[pandas-datasets]
+pip install transformers torch accelerate
 ```
 
 ---
 
-## Google Colab
+## Executar o sistema
 
-Os notebooks foram preparados para funcionar também no Google Colab.
+Na raiz do projeto:
 
-Quando executados em Colab, o repositório pode ser clonado automaticamente e o dataset é obtido diretamente através do Kaggle.
+```bash
+python main.py
+```
+
+No Windows, dependendo da instalação de Python:
+
+```bash
+py -3.14 main.py
+```
 
 ---
 
-## Tecnologias utilizadas
+## Tecnologias
 
 - Python
 - Pandas
@@ -380,40 +575,43 @@ Quando executados em Colab, o repositório pode ser clonado automaticamente e o 
 - KaggleHub
 - Jupyter Notebook
 - Google Colab
+- Transformers
+- Hugging Face
+- PyTorch
 - Git
 - GitHub
 
 ---
 
-## Métricas de avaliação
+## Próximos passos
 
-Foram utilizadas:
-
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- Matriz de Confusão
-- ROC-AUC
-- Cross-Validation
-
-Neste projeto, o **Recall da classe maliciosa** recebe particular atenção, devido ao impacto dos falsos negativos.
+- integrar o modelo de Ransomware;
+- integrar o modelo de Phishing;
+- completar o orquestrador multiagente;
+- criar `multiagent_system.ipynb`;
+- implementar uma segunda versão com OpenClaw, CrewAI, n8n ou ferramenta equivalente;
+- avaliar integração com Telegram;
+- criar diagramas de arquitetura e caso de uso;
+- consolidar a documentação final.
 
 ---
 
 ## Limitações
 
-Os resultados obtidos são específicos dos datasets utilizados.
+O modelo de Malware foi treinado e avaliado com o dataset selecionado para o projeto.
 
-Um desempenho elevado nestes dados não significa que os modelos consigam detetar todas as variantes de malware, ransomware ou phishing existentes ou futuras.
+O desempenho obtido não garante o mesmo comportamento em:
 
-A avaliação com datasets externos e amostras mais recentes poderá ser considerada em fases posteriores do projeto.
+- amostras externas;
+- novas famílias de malware;
+- variantes futuras;
+- ambientes reais.
+
+A avaliação com dados externos deverá ser considerada antes de uma utilização real.
 
 ---
 
 ## Autores
-
-Projeto desenvolvido por:
 
 - **José Maria Alves** — Malware
 - **Tomás Matos** — Ransomware
