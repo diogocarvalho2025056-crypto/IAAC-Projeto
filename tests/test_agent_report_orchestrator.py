@@ -12,7 +12,7 @@ os.environ.setdefault("IAAC_SEM_LLM", "1")  # testes não descarregam o LLM
 
 @pytest.fixture(scope="session")
 def amostras():
-    return pd.read_csv(RAIZ / "data" / "processed" / "ransom_demo_samples.csv")
+    return pd.read_csv(RAIZ / "data" / "processed" / "ransom_cleaned.csv")
 
 
 def _amostra(df, classe):
