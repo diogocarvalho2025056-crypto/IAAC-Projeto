@@ -1,8 +1,14 @@
 pandas>=2.0.0
 numpy>=1.24.0
 scikit-learn>=1.3.0
-xgboost>=1.7.0
-lightgbm>=4.0.0
+xgboost>=2.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 joblib>=1.3.0
+pytest>=7.0.0
+
+# Opcional: relatório gerado por LLM local (Qwen2.5-1.5B-Instruct).
+# Sem estes pacotes o sistema usa um relatório por modelo fixo.
+transformers>=4.45.0
+accelerate>=0.30.0
+torch>=2.0.0
