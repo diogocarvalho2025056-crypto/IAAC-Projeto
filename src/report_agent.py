@@ -1,4 +1,6 @@
-from transformers import pipeline
+"""Agente generativo de relatórios técnicos de cibersegurança."""
+
+import os
 
 
 # --------------------------------------------------
@@ -14,18 +16,85 @@ NOME_MODELO = "Qwen/Qwen2.5-1.5B-Instruct"
 
 def carregar_gerador():
 
-    gerador = pipeline(
-        "text-generation",
-        model=NOME_MODELO,
-        device_map="auto",
-        dtype="auto"
-    )
+    # Permite executar o sistema sem LLM,
+    # por exemplo em testes ou em máquinas mais limitadas.
+    if os.environ.get(
+        "IAAC_SEM_LLM"
+    ) == "1":
 
-    return gerador
+        return None
+
+
+    try:
+
+        from transformers import pipeline
+
+        gerador = pipeline(
+            "text-generation",
+            model=NOME_MODELO,
+            device_map="auto",
+            dtype="auto"
+        )
+
+        return gerador
+
+
+    except Exception as erro:
+
+        print(
+            "[aviso] LLM indisponível "
+            f"({type(erro).__name__}). "
+            "Será utilizado um relatório determinístico."
+        )
+
+        return None
 
 
 # --------------------------------------------------
-# CRIAR MENSAGENS PARA O MODELO
+# FORMATAR FEATURES IMPORTANTES
+# --------------------------------------------------
+
+def _linhas_features(
+    resultado
+):
+
+    linhas = []
+
+
+    for feature in resultado.get(
+        "top_features",
+        []
+    ):
+
+        if feature[
+            "contribuicao"
+        ] > 0:
+
+            efeito = (
+                "aumenta a probabilidade "
+                "de malware"
+            )
+
+        else:
+
+            efeito = (
+                "reduz a probabilidade "
+                "de malware"
+            )
+
+
+        linhas.append(
+            f"{feature['feature']} = "
+            f"{feature['valor']:g} "
+            f"({efeito})"
+        )
+
+
+    return linhas
+
+
+# --------------------------------------------------
+# CRIAR MENSAGENS PARA O LLM
 # --------------------------------------------------
 
 def criar_mensagens(
@@ -37,17 +106,23 @@ def criar_mensagens(
     ]
 
     confianca = (
-        resultado["confianca"]
+        resultado[
+            "confianca"
+        ]
         * 100
     )
 
     prob_benigno = (
-        resultado["probabilidade_benigno"]
+        resultado[
+            "probabilidade_benigno"
+        ]
         * 100
     )
 
     prob_malware = (
-        resultado["probabilidade_malware"]
+        resultado[
+            "probabilidade_malware"
+        ]
         * 100
     )
 
@@ -55,20 +130,45 @@ def criar_mensagens(
     mensagem_sistema = """
 És um analista de cibersegurança.
 
-A tua função é transformar resultados de um classificador
-de Machine Learning num pequeno relatório técnico.
+A tua função é transformar o resultado de um
+classificador de Machine Learning num pequeno
+relatório técnico.
 
 O classificador já tomou a decisão.
 
 Nunca alteres a classificação.
 Nunca inventes características do ficheiro.
 Nunca inventes métricas.
-Nunca apresentes a confiança da previsão como sendo
-a precisão global do modelo.
+Nunca apresentes a confiança desta previsão
+como sendo a precisão global do modelo.
+
 Escreve sempre em português de Portugal.
+
+Usa "ficheiro" e nunca "arquivo".
+
 Não digas que tu próprio analisaste o ficheiro.
-Explica apenas o resultado produzido pelo classificador.
+Explica apenas o resultado produzido pelo
+classificador.
 """
+
+
+    features_importantes = _linhas_features(
+        resultado
+    )
+
+
+    bloco_features = ""
+
+
+    if features_importantes:
+
+        bloco_features = (
+            "\nFeatures que mais pesaram "
+            "nesta previsão:\n- "
+            + "\n- ".join(
+                features_importantes
+            )
+        )
 
 
     mensagem_utilizador = f"""
@@ -78,23 +178,27 @@ Classificação: {classificacao}
 Confiança desta previsão: {confianca:.2f}%
 Probabilidade Benigno: {prob_benigno:.2f}%
 Probabilidade Malware: {prob_malware:.2f}%
+{bloco_features}
 
-Escreve apenas um parágrafo em português de Portugal.
+Escreve apenas um parágrafo em português
+de Portugal.
 
 O parágrafo deve:
 
-- ter entre 50 e 90 palavras;
+- ter entre 60 e 100 palavras;
 - indicar claramente a classificação;
 - mencionar a confiança desta previsão;
-- explicar que a decisão foi produzida por um modelo
-  de Machine Learning;
-- indicar que a previsão não representa uma certeza absoluta;
+- explicar que a decisão foi produzida
+  por um modelo de Machine Learning;
+- mencionar as features importantes apenas
+  se tiverem sido fornecidas;
+- indicar que a previsão não representa
+  uma certeza absoluta;
 - não incluir títulos;
 - não usar listas;
 - não fazer recomendações;
-- não acrescentar informação que não esteja nos dados fornecidos
-Evita expressões em português do Brasil.
-Usa "ficheiro" em vez de "arquivo".
+- não acrescentar informação que não esteja
+  nos dados fornecidos.
 
 Responde apenas com o parágrafo.
 """
@@ -116,21 +220,111 @@ Responde apenas com o parágrafo.
 
 
 # --------------------------------------------------
+# RELATÓRIO DETERMINÍSTICO
+# --------------------------------------------------
+
+def relatorio_modelo_fixo(
+    resultado
+):
+
+    classificacao = resultado[
+        "classificacao"
+    ]
+
+    confianca = (
+        resultado[
+            "confianca"
+        ]
+        * 100
+    )
+
+    prob_benigno = (
+        resultado[
+            "probabilidade_benigno"
+        ]
+        * 100
+    )
+
+    prob_malware = (
+        resultado[
+            "probabilidade_malware"
+        ]
+        * 100
+    )
+
+
+    texto = (
+        "O classificador de Machine Learning "
+        "atribuiu a esta amostra a classificação "
+        f"{classificacao}, com {confianca:.2f}% "
+        "de confiança nesta previsão. "
+        f"A probabilidade de Benigno foi "
+        f"{prob_benigno:.2f}% e a probabilidade "
+        f"de Malware foi {prob_malware:.2f}%."
+    )
+
+
+    features_importantes = _linhas_features(
+        resultado
+    )
+
+
+    if features_importantes:
+
+        texto += (
+            " As features com maior influência "
+            "nesta previsão foram: "
+            + "; ".join(
+                features_importantes
+            )
+            + "."
+        )
+
+
+    texto += (
+        " O resultado representa uma estimativa "
+        "estatística e não uma certeza absoluta."
+    )
+
+
+    return texto
+
+
+# --------------------------------------------------
 # GERAR RELATÓRIO
 # --------------------------------------------------
 
 def gerar_relatorio(
     resultado,
-    gerador
+    gerador=None
 ):
 
-    if resultado["sucesso"] is False:
+    if resultado[
+        "sucesso"
+    ] is False:
 
         return (
             "Não foi possível gerar o relatório. "
-            + resultado["mensagem"]
+            + resultado[
+                "mensagem"
+            ]
         )
 
+
+    # ----------------------------------------------
+    # FALLBACK SEM LLM
+    # ----------------------------------------------
+
+    if gerador is None:
+
+        return relatorio_modelo_fixo(
+            resultado
+        )
+
+
+    # ----------------------------------------------
+    # RELATÓRIO COM LLM
+    # ----------------------------------------------
 
     mensagens = criar_mensagens(
         resultado
@@ -139,7 +333,7 @@ def gerar_relatorio(
 
     resposta = gerador(
         mensagens,
-        max_new_tokens=130,
+        max_new_tokens=160,
         do_sample=False
     )
 
@@ -151,8 +345,6 @@ def gerar_relatorio(
     ]
 
 
-    # Quando o modelo trabalha em modo chat,
-    # generated_text contém as mensagens.
     if isinstance(
         texto_gerado,
         list
