@@ -137,15 +137,19 @@ relatório técnico.
 O classificador já tomou a decisão.
 
 Nunca alteres a classificação.
-Nunca inventes características do ficheiro.
+Nunca inventes características da amostra ou do ficheiro.
 Nunca inventes métricas.
 Nunca apresentes a confiança desta previsão
 como sendo a precisão global do modelo.
-
+Nunca uses a palavra "malwares".
+Usa sempre "malware".
+Nunca uses "benéfico" para representar a classe Benigno.
+Usa sempre "benigno".
+Usa sempre "ficheiro" em vez de "arquivo".
+Quando não souberes se a entrada representa diretamente um ficheiro,
+usa a palavra "amostra".
+Não afirmes que conheces características que não foram fornecidas.
 Escreve sempre em português de Portugal.
-
-Usa "ficheiro" e nunca "arquivo".
-
 Não digas que tu próprio analisaste o ficheiro.
 Explica apenas o resultado produzido pelo
 classificador.
@@ -290,6 +294,37 @@ def relatorio_modelo_fixo(
     return texto
 
 
+
+# --------------------------------------------------
+# NORMALIZAR TEXTO
+# --------------------------------------------------
+
+def normalizar_portugues(
+    texto
+):
+
+    substituicoes = {
+        "malwares": "malware",
+        "Malwares": "Malware",
+        "arquivo": "ficheiro",
+        "Arquivo": "Ficheiro",
+        "arquivos": "ficheiros",
+        "Arquivos": "Ficheiros",
+        "benéfico": "benigno",
+        "Benéfico": "Benigno"
+    }
+
+
+    for origem, destino in substituicoes.items():
+
+        texto = texto.replace(
+            origem,
+            destino
+        )
+
+
+    return texto
+
 # --------------------------------------------------
 # GERAR RELATÓRIO
 # --------------------------------------------------
@@ -360,5 +395,9 @@ def gerar_relatorio(
 
         texto = texto_gerado
 
+
+    texto = normalizar_portugues(
+    texto
+)
 
     return texto.strip()
