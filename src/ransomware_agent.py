@@ -1,5 +1,5 @@
 """Agente de Ransomware/Malware: usa o módulo de inferência e devolve um resultado estruturado."""
-from ransomware_inference import prever_ransomware, prever_ransomware_bruto
+from src.ransomware_inference import prever_ransomware, prever_ransomware_bruto
 
 
 def analisar_ransomware(amostra, bruta=False):

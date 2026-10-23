@@ -6,7 +6,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-from features import load_feature_list, raw_sample_to_features
+from src.features import load_feature_list, raw_sample_to_features
 
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
 CAMINHO_MODELO = PASTA_PROJETO / "models" / "ransomware_model.pkl"
