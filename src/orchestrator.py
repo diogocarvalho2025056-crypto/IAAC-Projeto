@@ -1,7 +1,6 @@
-"""Orquestrador do sistema multiagente de cibersegurança."""
-
 from src.malware_agent import analisar_malware
 from src.ransomware_agent import analisar_ransomware
+from src.phishing_agent import analisar_phishing
 
 from src.report_agent import (
     carregar_gerador,
@@ -10,26 +9,19 @@ from src.report_agent import (
 
 
 # --------------------------------------------------
-# MODELO GENERATIVO
+# GERADOR LLM
 # --------------------------------------------------
 
 _gerador = None
-_gerador_carregado = False
 
 
 def _obter_gerador():
-    """
-    Carrega o modelo generativo apenas na primeira utilização.
-    """
 
     global _gerador
-    global _gerador_carregado
 
-    if not _gerador_carregado:
+    if _gerador is None:
 
         _gerador = carregar_gerador()
-
-        _gerador_carregado = True
 
     return _gerador
 
@@ -44,12 +36,12 @@ def processar_pedido(
     bruta=False
 ):
 
-    tipo = tipo.lower()
+    tipo = tipo.lower().strip()
 
 
-    # ----------------------------------------------
+    # --------------------------------------------------
     # MALWARE
-    # ----------------------------------------------
+    # --------------------------------------------------
 
     if tipo == "malware":
 
@@ -58,34 +50,11 @@ def processar_pedido(
         )
 
 
-        if resultado["sucesso"] is False:
-
-            return {
-                "sucesso": False,
-                "tipo": "Malware",
-                "erro": resultado["mensagem"]
-            }
-
-
-        relatorio = gerar_relatorio(
-            resultado,
-            _obter_gerador()
-        )
-
-
-        return {
-            "sucesso": True,
-            "tipo": "Malware",
-            "resultado": resultado,
-            "relatorio": relatorio
-        }
-
-
-    # ----------------------------------------------
+    # --------------------------------------------------
     # RANSOMWARE
-    # ----------------------------------------------
+    # --------------------------------------------------
 
-    if tipo == "ransomware":
+    elif tipo == "ransomware":
 
         resultado = analisar_ransomware(
             amostra,
@@ -93,37 +62,69 @@ def processar_pedido(
         )
 
 
-        if resultado["sucesso"] is False:
+    # --------------------------------------------------
+    # PHISHING
+    # --------------------------------------------------
 
-            return {
-                "sucesso": False,
-                "tipo": "Ransomware",
-                "erro": resultado["mensagem"]
-            }
+    elif tipo == "phishing":
 
-
-        relatorio = gerar_relatorio(
-            resultado,
-            _obter_gerador()
+        resultado = analisar_phishing(
+            amostra
         )
 
 
+    # --------------------------------------------------
+    # TIPO NÃO SUPORTADO
+    # --------------------------------------------------
+
+    else:
+
         return {
-            "sucesso": True,
-            "tipo": "Ransomware",
-            "resultado": resultado,
-            "relatorio": relatorio
+            "sucesso": False,
+            "tipo": tipo,
+            "erro": (
+                "Tipo de análise não suportado. "
+                "Opções disponíveis: "
+                "malware, ransomware ou phishing."
+            )
         }
 
 
-    # ----------------------------------------------
-    # TIPO NÃO SUPORTADO
-    # ----------------------------------------------
+    # --------------------------------------------------
+    # ERRO NO AGENTE
+    # --------------------------------------------------
+
+    if resultado[
+        "sucesso"
+    ] is False:
+
+        return {
+            "sucesso": False,
+            "tipo": tipo,
+            "erro": resultado.get(
+                "mensagem",
+                "Não foi possível analisar a amostra."
+            )
+        }
+
+
+    # --------------------------------------------------
+    # GERAR RELATÓRIO
+    # --------------------------------------------------
+
+    relatorio = gerar_relatorio(
+        resultado,
+        _obter_gerador()
+    )
+
+
+    # --------------------------------------------------
+    # RESULTADO FINAL
+    # --------------------------------------------------
 
     return {
-        "sucesso": False,
-        "erro": (
-            "Tipo de análise não suportado: "
-            + tipo
-        )
-    }
+    "sucesso": True,
+    "tipo": resultado["tipo"],
+    "resultado": resultado,
+    "relatorio": relatorio
+}
