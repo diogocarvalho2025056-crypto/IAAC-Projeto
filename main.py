@@ -10,13 +10,20 @@ import pandas as pd
 # CONFIGURAR CAMINHO DO PROJETO
 # --------------------------------------------------
 
-pasta_projeto = Path(__file__).resolve().parent
+pasta_projeto = Path(
+    __file__
+).resolve().parent
 
-if str(pasta_projeto) not in sys.path:
+
+if str(
+    pasta_projeto
+) not in sys.path:
 
     sys.path.insert(
         0,
-        str(pasta_projeto)
+        str(
+            pasta_projeto
+        )
     )
 
 
@@ -37,6 +44,7 @@ ficheiro_malware = (
     / "Malware_prepared.csv"
 )
 
+
 df_malware = pd.read_csv(
     ficheiro_malware
 )
@@ -51,7 +59,9 @@ def obter_amostra_malware(
             df_malware["Malicious"] == classe
         ]
         .iloc[0]
-        .drop("Malicious")
+        .drop(
+            "Malicious"
+        )
         .to_dict()
     )
 
@@ -172,12 +182,14 @@ ficheiro_demo_ransomware = (
     / "ransom_demo_samples.csv"
 )
 
+
 ficheiro_ransomware_limpo = (
     pasta_projeto
     / "data"
     / "processed"
     / "ransom_cleaned.csv"
 )
+
 
 caminho_features_ransomware = (
     pasta_projeto
@@ -204,6 +216,12 @@ rotulos_ransomware = {
     "0": 0,
     "1": 1
 }
+
+
+# Inicialmente não carregamos as amostras.
+# Só serão preparadas quando o utilizador
+# escolher a opção Ransomware.
+df_ransomware = None
 
 
 def carregar_amostras_ransomware():
@@ -294,13 +312,19 @@ def carregar_amostras_ransomware():
     return df
 
 
-df_ransomware = carregar_amostras_ransomware()
-
-
 def obter_amostra_ransomware(
     classe,
     indice=0
 ):
+
+    global df_ransomware
+
+
+    # Carregamento apenas quando necessário.
+    if df_ransomware is None:
+
+        df_ransomware = carregar_amostras_ransomware()
+
 
     if df_ransomware is None:
 
@@ -479,6 +503,176 @@ def menu_ransomware():
 
 
 # ==================================================
+# PHISHING
+# ==================================================
+
+ficheiro_phishing = (
+    pasta_projeto
+    / "dataset"
+    / "phishing_prepared.csv"
+)
+
+
+df_phishing = pd.read_csv(
+    ficheiro_phishing
+)
+
+
+def obter_amostra_phishing(
+    classe
+):
+
+    amostra = (
+        df_phishing[
+            df_phishing["class"] == classe
+        ]
+        .iloc[0]
+        .drop(
+            "class"
+        )
+        .to_dict()
+    )
+
+
+    return amostra
+
+
+def menu_phishing():
+
+    print("\n======================================")
+    print("ANÁLISE DE PHISHING")
+    print("======================================")
+
+    print("\nEscolha uma amostra de teste:")
+
+    print(
+        "1 - Website legítimo"
+    )
+
+    print(
+        "2 - Website de phishing"
+    )
+
+
+    opcao = input(
+        "\nOpção: "
+    ).strip()
+
+
+    # No dataset original:
+    #
+    #  1 = Legítimo
+    # -1 = Phishing
+
+    if opcao == "1":
+
+        amostra = obter_amostra_phishing(
+            1
+        )
+
+    elif opcao == "2":
+
+        amostra = obter_amostra_phishing(
+            -1
+        )
+
+    else:
+
+        print(
+            "\nOpção inválida."
+        )
+
+        return
+
+
+    print(
+        "\nA processar análise..."
+    )
+
+
+    resultado = processar_pedido(
+        "phishing",
+        amostra
+    )
+
+
+    if resultado["sucesso"] is False:
+
+        print(
+            "\nErro:"
+        )
+
+        print(
+            resultado["erro"]
+        )
+
+        return
+
+
+    resultado_tecnico = resultado[
+        "resultado"
+    ]
+
+
+    print("\n======================================")
+    print("RESULTADO TÉCNICO")
+    print("======================================")
+
+    print(
+        "Classificação:",
+        resultado_tecnico[
+            "classificacao"
+        ]
+    )
+
+
+    print(
+        "Confiança:",
+        f"{resultado_tecnico['confianca'] * 100:.2f}%"
+    )
+
+
+    print(
+        "Probabilidade Legítimo:",
+        f"{resultado_tecnico['probabilidade_legitimo'] * 100:.2f}%"
+    )
+
+
+    print(
+        "Probabilidade Phishing:",
+        f"{resultado_tecnico['probabilidade_phishing'] * 100:.2f}%"
+    )
+
+
+    if "top_features" in resultado_tecnico:
+
+        print(
+            "\nFeatures com maior contribuição:"
+        )
+
+
+        for feature in resultado_tecnico[
+            "top_features"
+        ]:
+
+            print(
+                f"- {feature['feature']} = "
+                f"{feature['valor']:g} "
+                f"(contribuição "
+                f"{feature['contribuicao']:+.2f})"
+            )
+
+
+    print("\n======================================")
+    print("RELATÓRIO GERADO")
+    print("======================================")
+
+    print(
+        resultado["relatorio"]
+    )
+
+
+# ==================================================
 # MENU PRINCIPAL
 # ==================================================
 
@@ -524,10 +718,7 @@ def main():
 
         elif opcao == "3":
 
-            print(
-                "\nO agente de Phishing "
-                "ainda não está integrado."
-            )
+            menu_phishing()
 
 
         elif opcao == "0":
