@@ -1,0 +1,65 @@
+{
+  "modelo": "XGBoost (otimizado)",
+  "melhor_modelo_geral_validacao": "XGBoost (otimizado)",
+  "classes": {
+    "0": "Legítimo",
+    "1": "Phishing"
+  },
+  "tamanhos": {
+    "treino": 4004,
+    "validacao": 858,
+    "teste": 859
+  },
+  "parametros": {
+    "colsample_bytree": 0.8,
+    "learning_rate": 0.2,
+    "max_depth": 5,
+    "min_child_weight": 5,
+    "n_estimators": 300,
+    "reg_lambda": 3,
+    "subsample": 0.9
+  },
+  "tuning": {
+    "melhor_recall_cv": 0.9622779005977238,
+    "n_iter": 20,
+    "melhores_parametros": {
+      "subsample": 0.9,
+      "reg_lambda": 3,
+      "n_estimators": 300,
+      "min_child_weight": 5,
+      "max_depth": 5,
+      "learning_rate": 0.2,
+      "colsample_bytree": 0.8
+    }
+  },
+  "teste": {
+    "accuracy": 0.959254947613504,
+    "precision": 0.963718820861678,
+    "recall": 0.9572072072072072,
+    "f1": 0.96045197740113,
+    "roc_auc": 0.9928036470205145,
+    "pr_auc": 0.9940993383226882
+  },
+  "matriz_confusao": [
+    [
+      399,
+      16
+    ],
+    [
+      19,
+      425
+    ]
+  ],
+  "top_features": {
+    "PrefixSuffix-": 0.35630032420158386,
+    "AnchorURL": 0.2100454866886139,
+    "HTTPS": 0.1586553007364273,
+    "ServerFormHandler": 0.024280916899442673,
+    "SubDomains": 0.0193759985268116,
+    "WebsiteTraffic": 0.018677279353141785,
+    "UsingPopupWindow": 0.017283998429775238,
+    "ShortURL": 0.01646599918603897,
+    "GoogleIndex": 0.015633489936590195,
+    "LinksInScriptTags": 0.015170197933912277
+  }
+}
