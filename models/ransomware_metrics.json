@@ -1,0 +1,26 @@
+{
+  "metrics_test": {
+    "accuracy": 0.9954058192955589,
+    "precision": 0.9920876445526476,
+    "recall": 0.9987745098039216,
+    "f1": 0.9954198473282443,
+    "TN": 1620,
+    "FP": 13,
+    "FN": 2,
+    "TP": 1630,
+    "roc_auc": 0.9993174627474993
+  },
+  "modelo": "XGBoost",
+  "versao": "baseline",
+  "parametros": {},
+  "n_features": 165,
+  "treino": 15220,
+  "validacao": 3267,
+  "teste": 3265,
+  "melhores_parametros_gridsearch": {
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "n_estimators": 100,
+    "reg_lambda": 5
+  }
+}
