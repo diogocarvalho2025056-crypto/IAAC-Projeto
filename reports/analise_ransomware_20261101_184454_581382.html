@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IAAC · Ransomware · Resultado</title>
+  <style>
+    :root { color-scheme: dark; --fundo:#080b10; --painel:#10151e; --texto:#eef2f7;
+      --muted:#a2adbd; --linha:#273142; --benigno:#22c55e; --ameaca:#fb7185; }
+    * {box-sizing:border-box}
+    body {background: radial-gradient(ellipse at 90% 0%,#152238 0%,var(--fundo) 48%);
+      color:var(--texto);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+      margin:0;min-height:100vh;padding:42px 20px}
+    main {max-width:980px;margin:auto}
+    .brand {letter-spacing:.17em;text-transform:uppercase;color:#9fb5d9;font-size:.76rem;
+      font-weight:800;margin-bottom:16px}
+    .card {background:linear-gradient(145deg,#121925,#0d1119);border:1px solid var(--linha);
+      border-radius:21px;padding:30px 32px;box-shadow:0 18px 65px rgba(0,0,0,.28)}
+    .header {display:flex;justify-content:space-between;align-items:flex-start;gap:15px;
+      margin-bottom:28px}
+    h1 {font-size:clamp(1.32rem,2.3vw,1.8rem);margin:0;font-weight:720;line-height:1.25}
+    h2 {font-size:1.08rem;margin:0 0 15px}
+    .pill {white-space:nowrap;color:#fb7185;background:rgba(251, 113, 133, .12);border:1px solid #fb718566;
+      border-radius:999px;font-size:.82rem;font-weight:700;padding:6px 13px}
+    .grid {display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:8px 0 28px}
+    .label {font-size:.91rem;color:var(--muted);margin-bottom:8px}
+    .big {font-size:clamp(1.8rem,4vw,2.6rem);font-weight:760;line-height:1.25}
+    .classification {color:#fb7185}
+    .bar-row {display:flex;justify-content:space-between;align-items:center;gap:10px;
+      margin:17px 0 7px;font-size:.95rem}
+    .bar-row strong {font-size:1.04rem;font-variant-numeric:tabular-nums}
+    .track {height:14px;border-radius:99px;background:#2a303c;overflow:hidden}
+    .fill {height:100%;border-radius:99px}
+    .safe {background:var(--benigno)} .danger {background:var(--ameaca)}
+    .features {margin-top:22px;padding-top:22px;border-top:1px solid var(--linha)}
+    .table-wrap {overflow-x:auto}
+    table {border-collapse:collapse;width:100%;font-size:.89rem}
+    th {color:var(--muted);text-align:left;font-weight:600}
+    td,th {border-bottom:1px solid #273142;padding:10px 8px}
+    .num {text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .feature {overflow-wrap:anywhere}
+    .note, footer, .modelo-mensagem {color:var(--muted);font-size:.83rem}
+    .modelo-mensagem {margin:19px 0 0}
+    footer {margin-top:20px;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}
+    @media(max-width:650px) {body {padding:17px 12px} .card {padding:22px 17px}
+      .header {display:block} .pill {display:inline-block;margin-top:14px} .grid {gap:12px}}
+    @media print {:root {color-scheme:light} body {background:white;color:#141414;padding:0}
+      .card {box-shadow:none;border-color:#ddd;background:white} .label,.note,footer {color:#555}
+      .track {background:#eee}}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">IAAC · Sistema Multiagente · Relatório técnico</div>
+    <article class="card">
+      <header class="header">
+        <h1>Ransomware — Amostra suspeita</h1>
+        <span class="pill">⚠ Ameaça detetada</span>
+      </header>
+      <div class="grid">
+        <div><div class="label">Classificação</div><div class="big classification">Ransomware/Malware</div></div>
+        <div><div class="label">Confiança do modelo</div><div class="big">100,00%</div></div>
+      </div>
+      <section aria-label="Probabilidades previstas pelo modelo">
+        <div class="bar-row"><span>Probabilidade de benigno</span>
+          <strong>0,00%</strong></div>
+        <div class="track"><div class="fill safe" style="width:0.003827%"></div></div>
+        <div class="bar-row"><span>Probabilidade de ransomware/malware</span>
+          <strong>100,00%</strong></div>
+        <div class="track"><div class="fill danger" style="width:99.996173%"></div></div>
+      </section>
+      <section class="features"><h2>Principais características da análise</h2><div class="table-wrap"><table><thead><tr><th>Feature</th><th>Valor</th><th>Contribuição</th></tr></thead><tbody><tr><td class="feature">processes_malicious</td><td class="num">2,000</td><td class="num">6,4619</td></tr><tr><td class="feature">network_http</td><td class="num">1,000</td><td class="num">0,5656</td></tr><tr><td class="feature">network_dns</td><td class="num">2,000</td><td class="num">0,5622</td></tr><tr><td class="feature">files_malicious</td><td class="num">1,000</td><td class="num">0,5464</td></tr><tr><td class="feature">files_unknown</td><td class="num">2,000</td><td class="num">0,4322</td></tr></tbody></table></div><p class="note">As contribuições são valores numéricos da explicação local do modelo; não são percentagens.</p></section>
+      <p class="modelo-mensagem">A amostra foi classificada como Ransomware/Malware com 100.00% de confiança.</p>
+    </article>
+    <footer><span>Fonte: classificação direta do modelo ML/XGBoost · não do texto do LLM</span>
+      <span>01/11/2026 · 18:44:54 Hora padrão de GMT</span></footer>
+  </main>
+</body>
+</html>
