@@ -1,0 +1,18 @@
+[
+  "SizeOfCode",
+  "SizeOfInitializedData",
+  "SizeOfUninitializedData",
+  "BaseOfCode",
+  "BaseOfData",
+  "ImageBase",
+  "SizeOfImage",
+  "SizeOfHeaders",
+  "SectionAlignment",
+  "FileAlignment",
+  "Checksum",
+  "SizeofStackReserve",
+  "SizeofStackCommit",
+  "SizeofHeapCommit",
+  "SizeofHeapReserve",
+  "LoaderFlags"
+]

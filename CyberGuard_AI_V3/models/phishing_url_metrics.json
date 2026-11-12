@@ -1,0 +1,34 @@
+{
+  "target": "class == -1",
+  "features": [
+    "UsingIP",
+    "LongURL",
+    "ShortURL",
+    "Symbol@",
+    "Redirecting//",
+    "PrefixSuffix-",
+    "HTTPSDomainURL"
+  ],
+  "treino": 5148,
+  "numero_amostras_teste": 573,
+  "dataset_sha256": "7e9b1b800f8b346a9ccfe86645c3f44e148e6512f9f1184d4be4685517d31c6f",
+  "divisao": "StratifiedGroupKFold, 1 de 10 folds para teste, agrupado pelo registo original completo (30 features); sem tuning no teste.",
+  "teste": {
+    "accuracy": 0.675392670157068,
+    "precision": 0.6309523809523809,
+    "recall": 0.8952702702702703,
+    "f1": 0.7402234636871509,
+    "roc_auc": 0.7020806907991025,
+    "matriz_confusao": [
+      [
+        122,
+        155
+      ],
+      [
+        31,
+        265
+      ]
+    ]
+  },
+  "limitacao": "Modelo lexical reduzido; sem HTML ou reputação. Dataset sem URLs originais: equivalência dos extratores não validada em pares, nem generalização por domínio/tempo."
+}
