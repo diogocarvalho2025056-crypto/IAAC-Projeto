@@ -1,0 +1,2 @@
+# Opcional: as classificacoes XGBoost nao necessitam de CrewAI.
+crewai>=0.100,<2.0

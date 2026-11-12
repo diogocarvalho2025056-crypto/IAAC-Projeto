@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>CyberGuard AI · IAAC</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="side">
+    <a class="brand" href="/" aria-label="CyberGuard AI — início">
+      <span class="brand-mark">C<span>G</span></span>
+      <span><strong>CyberGuard <em>AI</em></strong><small>PLATAFORMA DE ANÁLISE</small></span>
+    </a>
+    <div class="nav-heading">WORKSPACE</div>
+    <nav aria-label="Navegação principal">
+      <a href="#overview" class="nav-link"><span class="glyph">▦</span> Visão geral</a>
+      <a href="#analysis" class="nav-link"><span class="glyph">⌁</span> Analisar ameaças</a>
+      <a href="#assistant" class="nav-link"><span class="glyph">✦</span> Assistente Ollama</a>
+      <a href="#history" class="nav-link"><span class="glyph">▤</span> Histórico e relatórios</a>
+      <a href="/docs" class="nav-link"><span class="glyph">{ }</span> Documentação API</a>
+    </nav>
+    <div class="side-bottom">
+      <div class="tiny-overline">AMBIENTE</div>
+      <div class="status-row"><span class="dot"></span> Servidor FastAPI ativo</div>
+      <div class="side-note">Os dados de entrada são analisados localmente pelo projeto IAAC.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="top-line">
+      <div class="breadcrumbs">CYBERGUARD <span>/</span> DASHBOARD</div>
+      <div class="top-pill"><span class="pulse"></span> SELF-HOSTED · v1.0</div>
+    </div>
+
+    <header class="hero" id="overview">
+      <div>
+        <div class="tiny-overline accent">CENTRO DE OPERAÇÕES INTELIGENTE</div>
+        <h1>Análise de ameaças<br><span>num único lugar.</span></h1>
+        <p>Os classificadores do projeto IAAC, a interface Web e o assistente local numa plataforma integrada.</p>
+        <a class="primary-link" href="#analysis">Iniciar análise <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="hero-graphic" aria-hidden="true"><span class="orbit orbit-a"></span><span class="orbit orbit-b"></span><div class="shield">◆</div><div class="orbit-label a">MALWARE</div><div class="orbit-label b">PHISHING</div><div class="orbit-label c">RANSOMWARE</div></div>
+    </header>
+
+    <section aria-label="Indicadores" class="metrics">
+      <div class="metric"><span>Relatórios existentes</span><strong>{{ reports.total }}</strong><small>Ficheiros HTML no projeto</small></div>
+      <div class="metric"><span>Malware</span><strong>{{ reports.by_type.malware }}</strong><small>Relatórios de malware</small></div>
+      <div class="metric"><span>Ransomware</span><strong>{{ reports.by_type.ransomware }}</strong><small>Relatórios de ransomware</small></div>
+      <div class="metric"><span>Phishing</span><strong>{{ reports.by_type.phishing }}</strong><small>Relatórios de phishing</small></div>
+    </section>
+
+    <section class="section" aria-labelledby="engine-title">
+      <div class="section-heading"><div><div class="tiny-overline">INFRAESTRUTURA</div><h2 id="engine-title">Motores disponíveis</h2></div><button class="quiet-button" type="button" id="refresh-status">Atualizar estado ↻</button></div>
+      <div class="engine-grid" id="engine-grid">
+        {% for key, model in models.items() %}
+        <article class="engine-card">
+          <div class="engine-symbol {{ key }}">{% if key == 'malware' %}M{% elif key == 'ransomware' %}R{% else %}P{% endif %}</div>
+          <div><h3>{{ model.label }}</h3><p>Modelo de classificação do projeto IAAC</p></div>
+          <span class="state {% if model.files_available and model.source_present %}ready{% else %}missing{% endif %}">{% if model.files_available and model.source_present %}Ficheiros encontrados{% else %}Em falta{% endif %}</span>
+        </article>
+        {% endfor %}
+        <article class="engine-card"><div class="engine-symbol ollama">AI</div><div><h3>Ollama / Qwen</h3><p>Modelo de linguagem local</p></div><span class="state {% if ollama.online %}ready{% else %}missing{% endif %}" id="ollama-status">{% if ollama.online %}Online{% else %}Offline{% endif %}</span></article>
+        <article class="engine-card"><div class="engine-symbol crew">C</div><div><h3>CrewAI</h3><p>Agentes especializados · opcional</p></div><span class="state {% if crew.files_present and crew.package_installed %}ready{% else %}missing{% endif %}" id="crew-status">{% if crew.files_present and crew.package_installed %}Instalado{% else %}Não configurado{% endif %}</span></article>
+      </div>
+      <p class="footnote">“Ficheiros encontrados” confirma apenas a presença do modelo. A disponibilidade efetiva é validada quando uma análise é executada.</p>
+    </section>
+
+    <section class="section" id="analysis" aria-labelledby="analysis-title">
+      <div class="section-heading"><div><div class="tiny-overline">MACHINE LEARNING</div><h2 id="analysis-title">Executar análise</h2></div><div class="tag">INFERÊNCIA LOCAL</div></div>
+      <div class="workspace-grid">
+        <div class="panel">
+          <label class="form-label" for="model-select">Tipo de análise</label>
+          <select id="model-select"><option value="malware">Malware</option><option value="ransomware">Ransomware</option><option value="phishing">Phishing</option></select>
+          <p class="field-help">Analisa ficheiros reais ou URLs. Os modelos IAAC só classificam ficheiros CSV/JSON com as features do treino.</p>
+          <div class="input-tabs" aria-label="Formato da entrada">
+            <button class="tab-input active" id="mode-file" type="button" aria-pressed="true">↥ Ficheiro real</button>
+            <button class="tab-input" id="mode-url" type="button" aria-pressed="false">↗ URL real</button>
+            <button class="tab-input" id="mode-features" type="button" aria-pressed="false">{ } Features (avançado)</button>
+          </div>
+          <div id="file-pane">
+            <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Escolher ou arrastar ficheiro para análise">
+              <div class="drop-icon" aria-hidden="true">↥</div>
+              <strong>Arrasta o ficheiro para aqui</strong>
+              <span>ou clica para escolher no computador</span>
+              <small>EXE, DLL, PDF, DOCX, EML, ZIP, CSV, JSON · até 12 MiB</small>
+              <input id="real-file" type="file" hidden aria-label="Ficheiro real para analisar">
+            </div>
+            <div id="file-selected" class="file-selected" aria-live="polite">Nenhum ficheiro selecionado.</div>
+            <div class="button-row"><button class="main-button" id="analyze-file" type="button">Analisar ficheiro ↗</button></div>
+            <p class="field-help">Ficheiros normais: inspeção estática sem executar o conteúdo. CSV/JSON com as features certas: classificação pelo modelo treinado.</p>
+          </div>
+          <div id="url-pane" hidden>
+            <label class="form-label" for="target-url">Endereço URL completo</label>
+            <input id="target-url" type="url" placeholder="https://exemplo.pt/login" inputmode="url" autocomplete="off" spellcheck="false">
+            <div class="button-row"><button class="main-button" id="analyze-url" type="button">Analisar URL ↗</button></div>
+            <p class="field-help">Triagem lexical sem abrir o endereço. Não é uma predição do modelo Phishing treinado.</p>
+          </div>
+          <div id="features-pane" hidden>
+            <label class="form-label" for="sample-json">Features extraídas (JSON)</label>
+            <textarea id="sample-json" spellcheck="false" placeholder='{"nome_da_feature": 1, "outra_feature": 0}'></textarea>
+            <div class="button-row"><button class="main-button" id="analyze-button" type="button">Executar modelo IAAC ↗</button><button class="secondary-button" id="crew-button" type="button">Executar CrewAI</button></div>
+            <p class="field-help">Este modo recebe dados já preparados segundo o treino. Não inventa nem preenche automaticamente features em falta.</p>
+          </div>
+          <div class="notice" id="analysis-message" role="status" aria-live="polite">Pronto para analisar.</div>
+        </div>
+        <div class="panel result-panel">
+          <div class="panel-heading"><h3>Resultado da análise</h3><span class="tag">OUTPUT</span></div>
+          <div class="result-placeholder" id="result-placeholder"><div class="placeholder-symbol">⌁</div><strong>A aguardar um ficheiro ou URL</strong><p>O relatório da inspeção ou a classificação do modelo aparecerá aqui.</p></div>
+          <div id="result-content" hidden><div class="result-headline" id="result-classification">—</div><div class="result-meta" id="result-meta">—</div><div id="result-highlights" class="result-highlights"></div><p id="result-note" class="result-note"></p><details class="raw-details"><summary>Ver resposta técnica completa (JSON)</summary><pre id="result-json" class="json-result"></pre></details></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="assistant" aria-labelledby="assistant-title">
+      <div class="section-heading"><div><div class="tiny-overline">INTELIGÊNCIA LOCAL</div><h2 id="assistant-title">Assistente Ollama</h2></div><div class="tag">OPCIONAL</div></div>
+      <div class="panel assistant-panel">
+        <div><label class="form-label" for="ollama-model">Modelo instalado</label><select id="ollama-model"><option value="">A consultar Ollama...</option></select></div>
+        <div><label class="form-label" for="ollama-prompt">Pergunta</label><textarea id="ollama-prompt" placeholder="Explica, de forma objetiva, a diferença entre malware e ransomware..."></textarea></div>
+        <button id="ask-button" class="main-button">Perguntar ao modelo ↗</button>
+        <div class="notice" id="assistant-message" role="status" aria-live="polite"></div>
+        <pre id="assistant-response" class="assistant-output" hidden></pre>
+      </div>
+    </section>
+
+    <section class="section" id="history" aria-labelledby="history-title">
+      <div class="section-heading"><div><div class="tiny-overline">AUDITORIA</div><h2 id="history-title">Histórico e relatórios</h2></div><button class="quiet-button" id="refresh-history">Atualizar ↻</button></div>
+      <div class="history-grid"><div class="panel"><h3>Análises pela Web</h3><div id="web-history" class="history-items">A carregar histórico...</div></div>
+      <div class="panel"><h3>Relatórios HTML já existentes</h3>
+        {% if reports.recent %}<div class="history-items">{% for item in reports.recent %}<div class="history-row"><div><strong>{{ item.type|capitalize }}</strong><small>{{ item.modified }}</small></div><a href="/api/reports/{{ item.filename }}" title="Descarregar relatório">Descarregar ↗</a></div>{% endfor %}</div>{% else %}<p class="muted">Ainda não foram encontrados relatórios HTML.</p>{% endif %}
+      </div></div>
+    </section>
+    <footer>CyberGuard AI · IAAC · Serviço local <span>Não exponhas a aplicação diretamente à Internet.</span></footer>
+  </main>
+</div>
+</body>
+</html>

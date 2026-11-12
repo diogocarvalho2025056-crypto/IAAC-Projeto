@@ -1,0 +1,70 @@
+{
+  "data": "2026-11-10T20:35:24.776253+00:00",
+  "target": "Category == Ransomware",
+  "classes": {
+    "0": "Não ransomware (inclui benigno e outros malwares)",
+    "1": "Ransomware"
+  },
+  "features": [
+    "SizeOfCode",
+    "SizeOfInitializedData",
+    "SizeOfUninitializedData",
+    "BaseOfCode",
+    "BaseOfData",
+    "ImageBase",
+    "SizeOfImage",
+    "SizeOfHeaders",
+    "SectionAlignment",
+    "FileAlignment",
+    "Checksum",
+    "SizeofStackReserve",
+    "SizeofStackCommit",
+    "SizeofHeapCommit",
+    "SizeofHeapReserve",
+    "LoaderFlags"
+  ],
+  "dataset_sha256": "75ede3d35a897f748cd719ac9fca45e8320f6b8965810d84171841def6dc11cf",
+  "deduplicacao": "Uma amostra por md5 antes da divisão; grupos contraditórios excluídos.",
+  "grupos_contraditorios_excluidos": 8,
+  "tamanhos": {
+    "treino": 9726,
+    "validacao": 2084,
+    "teste": 2085
+  },
+  "sobreposicao_md5": 0,
+  "validacao": {
+    "accuracy": 0.9616122840690979,
+    "precision": 0.9433962264150944,
+    "recall": 0.6787330316742082,
+    "f1": 0.7894736842105263,
+    "roc_auc": 0.9539617655559685,
+    "matriz_confusao": [
+      [
+        1854,
+        9
+      ],
+      [
+        71,
+        150
+      ]
+    ]
+  },
+  "teste": {
+    "accuracy": 0.9573141486810551,
+    "precision": 0.9403973509933775,
+    "recall": 0.6396396396396397,
+    "f1": 0.7613941018766756,
+    "roc_auc": 0.9644076443593352,
+    "matriz_confusao": [
+      [
+        1854,
+        9
+      ],
+      [
+        80,
+        142
+      ]
+    ]
+  },
+  "limitacao": "Avaliação interna do dataset. Sem validação externa pareada com binários; não garante deteção de variantes novas."
+}
