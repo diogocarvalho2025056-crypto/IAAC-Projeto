@@ -1,5 +1,6 @@
 """Local CrewAI interpretation of completed defensive analysis results."""
 import json
+import logging
 import os
 from importlib.util import find_spec
 from threading import Lock
@@ -63,16 +64,24 @@ def interpret(result):
     os.environ['OTEL_SDK_DISABLED'] = 'true'
     os.environ['CREWAI_DISABLE_TELEMETRY'] = 'true'
     os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = 'true'
-    bypass = os.environ.get('no_proxy', os.environ.get('NO_PROXY', '')).split(',')
-    bypass = ','.join(dict.fromkeys(host for host in [*bypass, '127.0.0.1', 'localhost'] if host))
-    os.environ['NO_PROXY'] = os.environ['no_proxy'] = bypass
     try:
-        from crewai import Agent, Crew, LLM, Process, Task
+        import httpx
+        from crewai import Agent, Crew, Process, Task
+        from crewai.llms.base_llm import BaseLLM
 
-        with CREW_LOCK:
-            llm = LLM(model=setup['model'], custom_openai=True,
-                      base_url=f'{OLLAMA_URL}/v1', api_key='ollama-local',
-                      temperature=0.1, timeout=120, max_tokens=650)
+        with CREW_LOCK, httpx.Client(trust_env=False, timeout=120) as client:
+            class LocalOllama(BaseLLM):
+                def call(self, messages, **kwargs):
+                    if isinstance(messages, str):
+                        messages = [{'role': 'user', 'content': messages}]
+                    response = client.post(f'{OLLAMA_URL}/api/chat', json={
+                        'model': self.model, 'messages': messages, 'stream': False,
+                        'options': {'temperature': 0.1, 'num_ctx': 2048, 'num_predict': 250},
+                    })
+                    response.raise_for_status()
+                    return response.json()['message']['content']
+
+            llm = LocalOllama(model=setup['model'])
             options = dict(llm=llm, allow_delegation=False, allow_code_execution=False,
                            tools=[], max_iter=2, verbose=False)
             analyst = Agent(role='Analista de evidências', goal='Interpretar resultados de análise defensiva',
@@ -88,11 +97,9 @@ def interpret(result):
             )
             review = Task(
                 description='Revê as notas do analista à luz dos dados originais: {evidencias}. '
-                            'Escreve até 180 palavras em português de Portugal em texto simples. '
-                            'Preserva classificações e números. Distingue scores de certezas. '
-                            'Se houve apenas inspeção, indica que falta um diagnóstico. '
-                            'Inclui recomendações defensivas proporcionais e evita inventar evidências.',
-                expected_output='Síntese técnica revista, com limitações e recomendações defensivas.',
+                            'Avalia se os indicadores justificam revisão manual adicional. '
+                            'Responde apenas com REVER ou SEM_REVISAO.',
+                expected_output='Uma única opção: REVER ou SEM_REVISAO.',
                 agent=reviewer,
                 context=[analysis],
             )
@@ -101,10 +108,32 @@ def interpret(result):
                         verbose=False, tracing=False)
             output = crew.kickoff(inputs={'evidencias': json.dumps(evidence(result), ensure_ascii=False)})
     except Exception as exc:
+        logging.getLogger(__name__).exception('Falha na execução local do CrewAI')
         raise CrewUnavailable('A execução CrewAI falhou. Verifica o Ollama e o modelo instalado.') from exc
 
-    summary = output.raw.strip()
-    if not summary or len(summary) > 6000:
-        raise CrewUnavailable('O CrewAI devolveu uma síntese inválida. Repete a análise.')
+    summary = report_summary(result, output.raw)
     return {'engine': 'CrewAI', 'model': setup['model'],
             'agents': ['Analista de evidências', 'Revisor do relatório'], 'summary': summary}
+
+
+def report_summary(result, review_output):
+    lines = []
+    samples = evidence(result)['amostras']
+    for sample in samples:
+        prefix = f"Amostra {sample['amostra']}. " if len(samples) > 1 else ''
+        if not sample['modelo_utilizado']:
+            lines.append(prefix + 'A inspeção não produziu uma classificação por modelo.')
+            continue
+        line = prefix + f"Classificação do modelo: {sample['classificacao']}."
+        score = sample['score_ameaca']
+        if isinstance(score, (int, float)) and 0 <= score <= 1:
+            percentage = f'{score:.2%}'.replace('.', ',')
+            line += f' Pontuação atribuída à classe de ameaça: {percentage}.'
+        lines.append(line)
+    if any(sample['modelo_utilizado'] for sample in samples):
+        lines.append('A pontuação refere-se à entrada analisada e não é uma probabilidade calibrada.')
+    if result.get('limitacao'):
+        lines.append(result['limitacao'])
+    if review_output.strip().upper() == 'REVER':
+        lines.append('Recomenda-se revisão manual dos indicadores antes de tomar uma decisão.')
+    return '\n'.join(lines)
