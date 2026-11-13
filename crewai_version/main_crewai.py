@@ -26,6 +26,7 @@ from src.malware_agent import analisar_malware
 from src.ransomware_agent import analisar_ransomware
 from src.phishing_agent import analisar_phishing
 import pandas as pd
+from src.virustotal_client import consultar_ficheiro, consultar_url
 
 from crewai_version.crew import (
     criar_crew,
@@ -63,20 +64,18 @@ df_malware = pd.read_csv(
 )
 
 
-def obter_amostra_malware(
-    classe
-):
-
-    return (
-        df_malware[
-            df_malware["Malicious"] == classe
-        ]
-        .iloc[0]
-        .drop(
-            "Malicious"
-        )
-        .to_dict()
+def obter_amostra_malware(classe):
+    linha = df_malware[df_malware["Malicious"] == classe].iloc[0]
+    colunas_metadados = [
+        coluna for coluna in linha.index
+        if coluna.strip().lower() in {'sha-256', 'sha256', 'sha_256'}
+    ]
+    identificador = next(
+        (linha[coluna].strip() for coluna in colunas_metadados
+         if isinstance(linha[coluna], str) and linha[coluna].strip()),
+        None,
     )
+    return linha.drop(["Malicious", *colunas_metadados]).to_dict(), identificador
 
 
 # ==================================================
@@ -211,35 +210,26 @@ def carregar_amostras_ransomware():
     return df
 
 
-def obter_amostra_ransomware(
-    classe
-):
-
+def obter_amostra_ransomware(classe):
     global df_ransomware
 
-
     if df_ransomware is None:
-
         df_ransomware = carregar_amostras_ransomware()
 
-
     if df_ransomware is None:
+        return None, None
 
-        return None
-
-
-    linhas = df_ransomware[
-        df_ransomware["Class"] == classe
+    linha = df_ransomware[df_ransomware["Class"] == classe].iloc[0]
+    colunas_metadados = [
+        coluna for coluna in linha.index
+        if coluna.strip().lower() in {'sha-256', 'sha256', 'sha_256'}
     ]
-
-
-    return (
-        linhas
-        .iloc[0][
-            features_ransomware
-        ]
-        .to_dict()
+    identificador = next(
+        (linha[coluna].strip() for coluna in colunas_metadados
+         if isinstance(linha[coluna], str) and linha[coluna].strip()),
+        None,
     )
+    return linha[features_ransomware].to_dict(), identificador
 
 
 # ==================================================
@@ -258,20 +248,18 @@ df_phishing = pd.read_csv(
 )
 
 
-def obter_amostra_phishing(
-    classe
-):
-
-    return (
-        df_phishing[
-            df_phishing["class"] == classe
-        ]
-        .iloc[0]
-        .drop(
-            "class"
-        )
-        .to_dict()
+def obter_amostra_phishing(classe):
+    linha = df_phishing[df_phishing["class"] == classe].iloc[0]
+    colunas_metadados = [
+        coluna for coluna in linha.index
+        if coluna.strip().lower() in {'url'}
+    ]
+    identificador = next(
+        (linha[coluna].strip() for coluna in colunas_metadados
+         if isinstance(linha[coluna], str) and linha[coluna].strip()),
+        None,
     )
+    return linha.drop(["class", *colunas_metadados]).to_dict(), identificador
 
 
 # ==================================================
@@ -307,6 +295,29 @@ def executar_crew(
 # ==================================================
 
 
+def acrescentar_virustotal(resultado_tecnico, relatorio_vt):
+    estado = relatorio_vt["estado"]
+    if estado == "encontrado":
+        print(
+            f"\nVirusTotal: {relatorio_vt['malicious']} deteções maliciosas, "
+            f"{relatorio_vt['suspicious']} suspeitas."
+        )
+    else:
+        mensagens = {
+            "sem_hash": "Amostra sem SHA-256.",
+            "sem_url": "Amostra sem URL.",
+            "hash_invalido": "SHA-256 inválido.",
+            "url_invalido": "URL inválido.",
+            "sem_configuracao": "VT_API_KEY em falta.",
+            "sem_registo": "Sem relatório para este indicador.",
+            "limite_api": "Limite da API atingido.",
+            "indisponivel": "Consulta indisponível.",
+        }
+        print(f"\nVirusTotal: {mensagens[estado]}")
+
+    return {**resultado_tecnico, "virustotal": relatorio_vt}
+
+
 def menu_malware():
 
     print("\n======================================")
@@ -319,10 +330,10 @@ def menu_malware():
     opcao = input("\nOpção: ").strip()
 
     if opcao == "1":
-        amostra = obter_amostra_malware(0)
+        amostra, identificador = obter_amostra_malware(0)
 
     elif opcao == "2":
-        amostra = obter_amostra_malware(1)
+        amostra, identificador = obter_amostra_malware(1)
 
     else:
         print("\nOpção inválida.")
@@ -349,6 +360,9 @@ def menu_malware():
         resultado_tecnico is not None
         and resultado_tecnico.get("sucesso") is True
     ):
+        resultado_tecnico = acrescentar_virustotal(
+            resultado_tecnico, consultar_ficheiro(identificador)
+        )
         ficheiro = gerar_relatorio_visual(
             resultado_tecnico,
             "Malware"
@@ -378,13 +392,13 @@ def menu_ransomware():
 
     if opcao == "1":
 
-        amostra = obter_amostra_ransomware(
+        amostra, identificador = obter_amostra_ransomware(
             0
         )
 
     elif opcao == "2":
 
-        amostra = obter_amostra_ransomware(
+        amostra, identificador = obter_amostra_ransomware(
             1
         )
 
@@ -424,6 +438,9 @@ def menu_ransomware():
         resultado_tecnico is not None
         and resultado_tecnico.get("sucesso") is True
     ):
+        resultado_tecnico = acrescentar_virustotal(
+            resultado_tecnico, consultar_ficheiro(identificador)
+        )
         ficheiro = gerar_relatorio_visual(
             resultado_tecnico,
             "Ransomware"
@@ -451,10 +468,10 @@ def menu_phishing():
     opcao = input("\nOpção: ").strip()
 
     if opcao == "1":
-        amostra = obter_amostra_phishing(1)
+        amostra, identificador = obter_amostra_phishing(1)
 
     elif opcao == "2":
-        amostra = obter_amostra_phishing(-1)
+        amostra, identificador = obter_amostra_phishing(-1)
 
     else:
         print("\nOpção inválida.")
@@ -484,6 +501,9 @@ def menu_phishing():
         resultado_tecnico is not None
         and resultado_tecnico.get("sucesso") is True
     ):
+        resultado_tecnico = acrescentar_virustotal(
+            resultado_tecnico, consultar_url(identificador)
+        )
         ficheiro = gerar_relatorio_visual(
             resultado_tecnico,
             "Phishing"

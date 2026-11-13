@@ -40,6 +40,34 @@ def _numero(valor: object, casas: int = 4) -> str:
         return _texto(valor)
 
 
+def _secao_virustotal(relatorio: dict, tipo: str) -> str:
+    estados = {
+        "sem_hash": "A amostra não tem SHA-256.",
+        "sem_url": "A amostra não tem URL original.",
+        "hash_invalido": "O SHA-256 da amostra é inválido.",
+        "url_invalido": "O URL da amostra é inválido.",
+        "sem_configuracao": "Consulta por configurar.",
+        "sem_registo": "Sem relatório para este indicador.",
+        "limite_api": "Limite de consultas atingido.",
+        "indisponivel": "Consulta indisponível.",
+    }
+    estado = relatorio.get("estado")
+    if estado == "encontrado":
+        objeto = "URL" if tipo == "phishing" else "ficheiro"
+        maliciosas = _texto(relatorio.get("malicious", "—"))
+        suspeitas = _texto(relatorio.get("suspicious", "—"))
+        ultima_analise = _texto(relatorio.get("ultima_analise") or "—")
+        conteudo = (
+            f"<p>Deteções do {objeto}: <strong>{maliciosas}</strong> maliciosas"
+            f" · <strong>{suspeitas}</strong> suspeitas</p>"
+            f'<p class="note">Última análise: {ultima_analise}</p>'
+        )
+    else:
+        conteudo = f"<p>{estados.get(estado, estados['indisponivel'])}</p>"
+
+    return f'<section class="features"><h2>VirusTotal</h2>{conteudo}</section>'
+
+
 def gerar_relatorio_visual(
     resultado: dict,
     tipo_analise: str,
@@ -118,6 +146,10 @@ def gerar_relatorio_visual(
     mensagem_html = (
         f'<p class="modelo-mensagem">{_texto(mensagem)}</p>' if mensagem else ""
     )
+    relatorio_vt = resultado.get("virustotal")
+    virustotal_html = (
+        _secao_virustotal(relatorio_vt, tipo) if isinstance(relatorio_vt, dict) else ""
+    )
     p_b = prob_benigno * 100
     p_a = prob_ameaca * 100
     p_conf = confianca * 100
@@ -193,6 +225,7 @@ def gerar_relatorio_visual(
           <strong>{_numero(p_a,2)}%</strong></div>
         <div class="track"><div class="fill danger" style="width:{p_a:.6f}%"></div></div>
       </section>
+      {virustotal_html}
       {features_html}
       {mensagem_html}
     </article>
