@@ -19,6 +19,19 @@ partir dos resultados registados pelo backend.
    observa o estado parcial quando o export associado ao SHA-256 estiver
    em falta.
 
+## Testes realizados antes da entrega
+
+A validação decorreu em Windows, com Python 3.13 e Edge, em 18 de novembro de 2026.
+
+| Teste | Resultado observado |
+| --- | --- |
+| Bloco de Notas do Windows (`notepad.exe`) | O modelo PE classificou o ficheiro como **Benigno**, com score de ameaça de **0,29%**. A consulta real ao VirusTotal por SHA-256 devolveu **0 deteções maliciosas e 0 suspeitas**. A Zenbox reportou `harmless`. |
+| `https://example.com/` | O modelo lexical classificou o URL como **Legítimo**, com score de ameaça de **0,15%**. A consulta real ao VirusTotal devolveu **0 deteções maliciosas e 0 suspeitas**. |
+| Relatórios e síntese | As duas análises ficaram completas, com fontes concordantes. Foram verificados o resultado na interface, a síntese CrewAI com Ollama (`qwen2.5:0.5b`), o acesso ao JSON e a exportação HTML. |
+| Chave ausente, hash desconhecido e telemetria em falta | Sem chave, as duas análises ficaram parciais no Edge. Um ficheiro de texto benigno devolveu hash desconhecido na API real e ficou com classificação indeterminada no modo comportamental por falta de telemetria. |
+
+A suíte automatizada passou **34 testes**. Usou respostas controladas do VirusTotal para verificar divergência entre fontes, quotas, timeouts, estados pendentes e atribuição da família. Um vetor controlado de 165 features foi processado pelo classificador comportamental treinado. A recolha de telemetria numa sandbox isolada continua por validar. O [registo de validação](VALIDACAO.md) detalha os procedimentos e os resultados.
+
 ## Âmbito e limites
 
 - O modelo PE de malware usa 23 features estáticas. O modelo estático de
