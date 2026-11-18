@@ -1,25 +1,44 @@
-# Validação da V3
+# Validação da V5 Web
 
-Data: 10 de novembro de 2026.
+Validação de 18 de novembro de 2026 em Windows, com Python 3.13 e Edge.
+A aplicação foi iniciada com `cmd /c run.bat`, em
+<http://127.0.0.1:8000>. A síntese foi validada com CrewAI e Ollama
+(`qwen2.5:0.5b`).
 
-## Verificações concluídas
+## Interface e serviços reais
 
-Sete testes passaram com Python 3.13.5 e as dependências fixadas em `requirements.txt`:
+| Entrada | Artefacto e resultado real | VirusTotal real | Relatório |
+| --- | --- | --- | --- |
+| Bloco de Notas do Windows (`notepad.exe`) | XGBoost PE de 23 features. Benigno, score 0,29% | Consulta por SHA-256. 0 deteções maliciosas, 0 suspeitas. Veredito de sandbox Zenbox `harmless` | Completo, fontes concordantes |
+| `https://example.com/` | XGBoost lexical de 7 features. Legítimo, score 0,15% | Consulta de reputação. 0 deteções maliciosas, 0 suspeitas | Completo, fontes concordantes |
 
-- Extração PE32 e PE32+, incluindo BaseOfData, ImageBase, tamanhos, entropia e overlay.
-- Contagem de imports e exports em ambos os formatos.
-- Rejeição de diretórios fora dos limites do ficheiro.
-- Rejeição de ficheiros inválidos ou truncados.
-- Carregamento e previsão com os três artefactos reais; validação de esquema e números finitos.
-- Fluxo direto de upload PE para inferência, armazenamento SQLite e leitura do relatório; classificação de features de phishing e rejeição de EXE na análise comportamental.
-- Triagem de URL sem ML e rejeição de features ausentes/NaN.
+Em ambas as análises, foram confirmados o resultado no formulário, a
+síntese CrewAI e o acesso ao JSON gravado. Foi também aberta a exportação
+HTML. Uma execução anterior sem chave mostrou a análise parcial no Edge
+para ambas as entradas. A seleção comportamental sem export mostrou as
+features em falta e deixou a classificação indeterminada. Um ficheiro de
+texto benigno criado para o teste devolveu um hash desconhecido na API
+real. Na análise comportamental desse ficheiro, a API Web confirmou o
+estado parcial e a ausência de telemetria.
 
-O fluxo direto utiliza os handlers reais e os modelos reais. Apenas a execução em thread auxiliar é substituída por uma chamada síncrona nos testes sem sockets. Estes testes não substituem testes HTTP.
+## Testes automatizados
 
-Também foram verificadas a sintaxe JavaScript com `node --check` e a compilação dos módulos Python.
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests
+```
 
-## Verificações pendentes
+34 testes passaram. Os testes carregam artefactos treinados e exercitam
+extração PE, inferência, HTTP, histórico e relatórios. Os casos de
+divergência, hash desconhecido, quota, timeout, resposta pendente e
+classificação de família usam respostas VirusTotal controladas. Um vetor
+controlado de 165 features percorre o classificador comportamental real.
+Os casos comportamentais incluem telemetria em falta, export incompatível
+e rejeição de um valor fracionário numa coluna inteira.
 
-Os testes com cliente HTTP ficaram bloqueados na criação de socketpair pelo event loop Windows, antes da execução dos handlers. Não foi concluída uma sessão de navegação nem uma revisão visual no browser. Os testes HTTP estão disponíveis para execução fora desta restrição.
+## Validação pendente
 
-Não foram executadas amostras de malware nem recolhidos comportamentos em sandbox. Não foi treinado um novo modelo. A validação estatística com ficheiros externos e a equivalência das features extraídas com o extrator original continuam pendentes. Os ficheiros PE dos testes são sintéticos e verificam a estrutura do pipeline, não a capacidade de deteção em ambiente real.
+Falta configurar uma sandbox isolada e validar o mapeamento da telemetria
+para as 165 features. A consulta real devolveu um veredito resumido de
+sandbox. O veredito não contém as medições necessárias ao modelo
+comportamental. A equivalência dos extratores Web PE e lexical com o
+pré-processamento dos datasets originais continua sem validação pareada.

@@ -42,6 +42,12 @@ def evidence(result):
         'tipo': result.get('tipo'),
         'metodo': result.get('modo'),
         'limitacao': result.get('limitacao'),
+        'estado': result.get('estado_analise'),
+        'veredito': result.get('veredito'),
+        'virustotal': {key: value for key, value in (result.get('virustotal') or {}).items()
+                       if key in ('estado', 'malicious', 'suspicious')},
+        'comportamento': result.get('comportamento'),
+        'motivos': result.get('motivos', []),
         'amostras': [
             {
                 'amostra': index,
@@ -69,43 +75,33 @@ def interpret(result):
         from crewai import Agent, Crew, Process, Task
         from crewai.llms.base_llm import BaseLLM
 
-        with CREW_LOCK, httpx.Client(trust_env=False, timeout=120) as client:
+        with CREW_LOCK, httpx.Client(trust_env=False, timeout=45) as client:
             class LocalOllama(BaseLLM):
                 def call(self, messages, **kwargs):
                     if isinstance(messages, str):
                         messages = [{'role': 'user', 'content': messages}]
                     response = client.post(f'{OLLAMA_URL}/api/chat', json={
                         'model': self.model, 'messages': messages, 'stream': False,
-                        'options': {'temperature': 0.1, 'num_ctx': 2048, 'num_predict': 250},
+                        'options': {'temperature': 0.1, 'num_ctx': 2048, 'num_predict': 48},
                     })
                     response.raise_for_status()
                     return response.json()['message']['content']
 
             llm = LocalOllama(model=setup['model'])
-            options = dict(llm=llm, allow_delegation=False, allow_code_execution=False,
-                           tools=[], max_iter=2, verbose=False)
-            analyst = Agent(role='Analista de evidências', goal='Interpretar resultados de análise defensiva',
-                            backstory='Especialista em classificação e limitações de modelos.', **options)
-            reviewer = Agent(role='Revisor do relatório', goal='Produzir uma síntese fiel em português de Portugal',
-                             backstory='Revisor de relatórios técnicos de segurança defensiva.', **options)
+            analyst = Agent(role='Analista de evidências',
+                            goal='Organizar a síntese de evidências defensivas',
+                            backstory='Apresenta resultados técnicos com as respetivas limitações.',
+                            llm=llm, allow_delegation=False, allow_code_execution=False,
+                            tools=[], max_iter=1, max_retry_limit=0, verbose=False)
             analysis = Task(
-                description='Interpreta os seguintes dados técnicos: {evidencias}. '
-                            'Identifica os resultados por amostra, a evidência disponível e as limitações. '
-                            'Usa apenas os dados fornecidos e preserva as classificações.',
-                expected_output='Notas concisas sobre as evidências e as limitações.',
+                description='Lê apenas os resultados calculados pelo backend: {evidencias}. '
+                            'Escolhe MODELO se a síntese deve começar pela inferência ou COBERTURA '
+                            'se deve começar pelo estado das fontes. Responde apenas com esse código.',
+                expected_output='Uma única opção: MODELO ou COBERTURA.',
                 agent=analyst,
             )
-            review = Task(
-                description='Revê as notas do analista à luz dos dados originais: {evidencias}. '
-                            'Avalia se os indicadores justificam revisão manual adicional. '
-                            'Responde apenas com REVER ou SEM_REVISAO.',
-                expected_output='Uma única opção: REVER ou SEM_REVISAO.',
-                agent=reviewer,
-                context=[analysis],
-            )
-            crew = Crew(agents=[analyst, reviewer], tasks=[analysis, review],
-                        process=Process.sequential, memory=False, cache=False,
-                        verbose=False, tracing=False)
+            crew = Crew(agents=[analyst], tasks=[analysis], process=Process.sequential,
+                        memory=False, cache=False, verbose=False, tracing=False)
             output = crew.kickoff(inputs={'evidencias': json.dumps(evidence(result), ensure_ascii=False)})
     except Exception as exc:
         logging.getLogger(__name__).exception('Falha na execução local do CrewAI')
@@ -113,7 +109,7 @@ def interpret(result):
 
     summary = report_summary(result, output.raw)
     return {'engine': 'CrewAI', 'model': setup['model'],
-            'agents': ['Analista de evidências', 'Revisor do relatório'], 'summary': summary}
+            'agents': ['Analista de evidências'], 'summary': summary}
 
 
 def report_summary(result, review_output):
@@ -134,6 +130,13 @@ def report_summary(result, review_output):
         lines.append('A pontuação refere-se à entrada analisada e não é uma probabilidade calibrada.')
     if result.get('limitacao'):
         lines.append(result['limitacao'])
-    if review_output.strip().upper() == 'REVER':
-        lines.append('Recomenda-se revisão manual dos indicadores antes de tomar uma decisão.')
-    return '\n'.join(lines)
+    coverage = []
+    if result.get('veredito'):
+        coverage.append(f"Veredito: {result['veredito']}. Análise {result['estado_analise']}.")
+    vt = result.get('virustotal') or {}
+    if vt.get('estado') == 'encontrado':
+        coverage.append(f"VirusTotal: {vt['malicious']} deteções maliciosas e {vt['suspicious']} suspeitas.")
+    coverage.extend(reason for reason in result.get('motivos', []) if reason != result.get('limitacao'))
+    if review_output.strip().upper() == 'COBERTURA':
+        return '\n'.join(coverage + lines)
+    return '\n'.join(lines + coverage)

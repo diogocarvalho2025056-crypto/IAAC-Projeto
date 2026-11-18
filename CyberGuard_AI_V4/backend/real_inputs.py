@@ -190,6 +190,8 @@ def parse_feature_file(data: bytes, extension: str, required_features: list[str]
         sample = {}
         for name in required_features:
             original = raw[name]
+            if isinstance(original, bool):
+                raise ValueError(f'Amostra {i}: a feature {name} deve ser numérica.')
             try:
                 number = float(original)
             except (ValueError, TypeError, OverflowError) as exc:

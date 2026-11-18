@@ -40,7 +40,7 @@ class V31Tests(unittest.TestCase):
         self.assertTrue(result['modelo_treinado_utilizado'])
 
     def test_routes_and_reports(self):
-        with tempfile.TemporaryDirectory(dir=service.ROOT) as tmp:
+        with tempfile.TemporaryDirectory() as tmp:
             def db():
                 c=sqlite3.connect(Path(tmp)/'test.sqlite3')
                 c.execute('CREATE TABLE IF NOT EXISTS analyses (id TEXT PRIMARY KEY, created_at TEXT, payload TEXT)')

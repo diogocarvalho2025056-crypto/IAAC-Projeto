@@ -91,6 +91,10 @@ Foram registados 19 falsos negativos (phishing não detetado) e 16 falsos positi
 
 Features mais importantes: `PrefixSuffix-` (35,6%), `AnchorURL` (21,0%) e `HTTPS` (15,9%). Estas três concentram mais de 70% da importância total.
 
+## Integração na V5 Web
+
+Este classificador recebe as 30 features codificadas em CSV ou JSON. O formulário de URL executa o artefacto lexical distinto de sete features e consulta o VirusTotal. Consulta os resultados e limites desse classificador no [registo V3.1](../V31_ENTREGA.md).
+
 ## Inferência
 
 O modelo deve ser utilizado através do módulo `src/phishing_inference.py`, que:

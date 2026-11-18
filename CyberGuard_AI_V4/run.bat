@@ -7,7 +7,7 @@ if not exist "%CYBERGUARD_PYTHON%" (
   pause
   exit /b 1
 )
-echo CyberGuard AI V4: http://127.0.0.1:8000
+echo CyberGuard AI V5: http://127.0.0.1:8000
 set OMP_NUM_THREADS=1
 set OTEL_SDK_DISABLED=true
 set CREWAI_DISABLE_TELEMETRY=true

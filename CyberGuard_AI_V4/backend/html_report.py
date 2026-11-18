@@ -29,7 +29,7 @@ def card(item,kind,index=None):
     title=LABELS.get(kind,kind)+(f' · Amostra {index}' if index else '')
     confidence=item.get('confianca')
     score=number(confidence*100,2)+'%' if ml and numeric(confidence) else 'Não aplicável'
-    out=f'<article class="card"><header class="header"><h1>{text(title)}</h1><span class="pill {css}">{badge}</span></header><div class="grid"><div><div class="label">Classificação</div><div class="big {css}">{text(item.get("classificacao"))}</div></div><div><div class="label">Confiança do modelo nesta previsão</div><div class="big">{score}</div></div></div>'
+    out=f'<article class="card"><header class="header"><h1>{text(title)}</h1><span class="pill {css}">{badge}</span></header><div class="grid"><div><div class="label">Classificação do modelo</div><div class="big {css}">{text(item.get("classificacao"))}</div></div><div><div class="label">Confiança do modelo nesta previsão</div><div class="big">{score}</div></div></div>'
     p=item.get('probabilidade_ameaca')
     if ml and numeric(p) and 0<=p<=1:
         negative='Legítimo' if kind.startswith('phishing') else ('Não ransomware' if kind=='ransomware_static' else 'Benigno')
@@ -81,11 +81,33 @@ def render_report(item):
         pass
     samples=item.get('resultados')
     cards=''.join(card(dict(s,modo=item.get('modo'),limitacao=s.get('limitacao',item.get('limitacao'))),kind,i+1) for i,s in enumerate(samples)) if samples else card(item,kind)
+    if item.get('estado_analise'):
+        cards = '<article class="card"><h1>'+text(item['veredito'])+'</h1>'+details([
+            ('Estado da análise', item['estado_analise']), ('Confiança no veredito', item['confianca_veredito']),
+            ('Relação entre fontes', item['relacao_fontes']), ('Motivos', ' '.join(item['motivos']) or None),
+        ])+'</article>'+cards
+    vt = item.get('virustotal')
+    if vt:
+        cards += '<article class="card"><h2>VirusTotal</h2>'+details([
+            ('Estado da consulta', vt.get('estado')), ('Detalhe', vt.get('detalhe')),
+            ('Motores maliciosos', vt.get('malicious')), ('Motores suspeitos', vt.get('suspicious')),
+            ('Última análise', vt.get('ultima_analise')),
+            ('Família sugerida pelo VirusTotal', vt.get('familia_sugerida')),
+            *[(f"Sandbox via VirusTotal · {v['sandbox']}", v['categoria'])
+              for v in vt.get('vereditos_sandbox', [])],
+        ])+'</article>'
+    behavior = item.get('comportamento')
+    if behavior:
+        cards += '<article class="card"><h2>Evidência comportamental</h2>'+details([
+            ('Estado', behavior.get('estado')), ('Origem', behavior.get('origem')),
+            ('Detalhe', behavior.get('detalhe')), ('Features validadas', behavior.get('numero_features')),
+            *behavior.get('observacoes', {}).items(),
+        ])+'</article>'
     crew=item.get('crewai')
     if crew:
         cards += ('<article class="card"><h2>Síntese CrewAI</h2>'
                   '<p style="white-space:pre-wrap">'+text(crew['summary'])+'</p>'
-                  +details([('Modelo local',crew['model']),('Agentes',', '.join(crew['agents']))])
+                  +details([('Modelo local',crew.get('model')),('Agentes',', '.join(crew.get('agents', [])))])
                   +'</article>')
     meta=[('Identificador',item.get('id')),('Data',created),('Versão',item.get('versao')),('SHA-256 do upload',item.get('sha256')),('Tamanho (bytes)',item.get('tamanho_bytes'))]
     return '<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CyberGuard AI · Relatório técnico</title><style>'+CSS+'</style></head><body><main><div class="brand">IAAC · CyberGuard AI · Relatório técnico</div>'+cards+'<article class="card"><h2>Identificação da análise</h2>'+details(meta)+'</article><footer><span>Fonte da classificação: resultados técnicos registados.</span><span>Imprimir ou guardar como PDF: Ctrl+P no browser.</span></footer></main></body></html>'

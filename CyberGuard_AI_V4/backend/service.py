@@ -39,13 +39,16 @@ def load_model(kind):
         model.load_model(path)
     model.set_params(n_jobs=1)
     expected = feature_names(kind)
-    if model.n_features_in_ != len(expected):
+    if (kind == 'ransomware' and len(expected) != 165) or model.n_features_in_ != len(expected):
         raise RuntimeError('O modelo e o esquema de features não correspondem.')
     names = getattr(model, 'feature_names_in_', None)
     if names is not None and list(names) != expected:
         raise RuntimeError('A ordem das features do modelo não corresponde ao esquema.')
     if list(model.classes_) != [0, 1]:
         raise RuntimeError('Classes inesperadas no modelo.')
+    if kind == 'ransomware' and (names is None or
+                                 set(model.get_booster().feature_types or []) != {'int', 'float'}):
+        raise RuntimeError('O artefacto comportamental não fornece o esquema de tipos esperado.')
     return model
 
 
@@ -62,7 +65,7 @@ def validate(kind, sample):
             raise ValueError(f'{n}: é necessário um número finito.')
         if kind in ('phishing','phishing_url') and value not in (-1, 0, 1):
             raise ValueError(f'{n}: os valores permitidos são -1, 0 e 1.')
-        output[n] = float(value)
+        output[n] = value if kind == "ransomware" else float(value)
     return output
 
 
@@ -70,7 +73,14 @@ def predict(kind, sample):
     import pandas as pd
     values = validate(kind, sample)
     model = load_model(kind)
-    frame = pd.DataFrame([values], columns=feature_names(kind))
+    names = feature_names(kind)
+    if kind == 'ransomware':
+        for name, dtype in zip(names, model.get_booster().feature_types, strict=True):
+            value = values[name]
+            if dtype == 'int' and value % 1:
+                raise ValueError(f'{name}: o modelo comportamental requer um valor inteiro.')
+            values[name] = int(value) if dtype == 'int' else float(value)
+    frame = pd.DataFrame([values], columns=names)
     p = model.predict_proba(frame)[0]
     label = int(model.predict(frame)[0])
     names = ('Legítimo', 'Phishing') if kind in ('phishing','phishing_url') else (('Não ransomware', 'Ransomware') if kind == 'ransomware_static' else ('Benigno', 'Malware'))
@@ -98,7 +108,7 @@ def database():
 
 
 def save(result):
-    result = dict(result, versao='4.0.0', id=uuid4().hex, created_at=datetime.now(timezone.utc).isoformat())
+    result = dict(result, versao='5.0.0', id=uuid4().hex, created_at=datetime.now(timezone.utc).isoformat())
     with LOCK, closing(database()) as db, db:
         db.execute('INSERT INTO analyses VALUES (?, ?, ?)', (result['id'], result['created_at'], json.dumps(result, ensure_ascii=False, allow_nan=False)))
     return result
@@ -120,8 +130,9 @@ def model_status():
     results = []
     for kind, filename in ARTIFACTS.items():
         path = ROOT / 'models' / filename
-        item = {'tipo': kind, 'features': len(feature_names(kind)), 'disponivel': path.is_file(), 'carregado': False}
+        item = {'tipo': kind, 'features': None, 'disponivel': path.is_file(), 'carregado': False}
         try:
+            item['features'] = len(feature_names(kind))
             load_model(kind)
             item['carregado'] = True
         except Exception as exc:

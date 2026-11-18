@@ -1,5 +1,7 @@
 # CyberGuard AI — pacote de integração Web
 
+**Referência histórica.** Para a versão mantida e validada nesta entrega, consulta o [README da V5 Web](../README.md).
+
 Este ZIP é uma **camada de integração Web com uploads reais** para copiar para a raiz de `ProjetoIAAC-main` ou `IAAC-Projeto`. **Não inclui** os modelos originais, datasets, código `src/` ou código `crewai_version/`; estes mantêm-se no projeto principal.
 
 ## Instalação no Windows

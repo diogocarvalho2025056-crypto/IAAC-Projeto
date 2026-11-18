@@ -48,6 +48,10 @@ O GridSearchCV do XGBoost (recall) não melhorou o baseline na validação (Reca
 | Sem `processes_malicious` | 0,9884 | 0,9865 | 0,9875 |
 | Só estáticas (149, sem sandbox) | 0,9467 | 0,9549 | 0,9508 |
 
+## Integração na V5 Web
+
+O backend valida os nomes, a ordem e os tipos das 165 features conforme o artefacto. Para ficheiros, lê um export completo de sandbox em `runtime/behavior/<sha256>.json`. A falta de medições mantém a análise parcial. O teste de ablação de 149 features mede um cenário de avaliação distinto. A aplicação exige o esquema integral deste artefacto. Consulta o [guia de arranque e configuração](../README.md).
+
 ## Inferência
 Módulo `src/ransomware_inference.py`:
 1. recebe um `dict` com as 165 features (`prever_ransomware`) ou uma linha bruta do `ransom.csv` (`prever_ransomware_bruto`);

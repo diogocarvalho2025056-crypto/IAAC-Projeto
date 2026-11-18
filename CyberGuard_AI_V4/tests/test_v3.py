@@ -93,7 +93,8 @@ class DirectPipelineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             service.validate('malware', {})
 
-    def test_upload_route_and_persistence(self):
+    @patch('backend.crew_analysis.interpret', return_value=None)
+    def test_upload_route_and_persistence(self, _crew):
         from backend import app as module, service
         from starlette.datastructures import UploadFile
         import sqlite3
@@ -105,7 +106,7 @@ class DirectPipelineTests(unittest.TestCase):
             raise AssertionError('Unexpected asynchronous I/O')
         async def direct(function, *args):
             return function(*args)
-        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as tmp:
+        with tempfile.TemporaryDirectory() as tmp:
             def database():
                 db = sqlite3.connect(Path(tmp) / 'history.sqlite3')
                 db.execute('CREATE TABLE IF NOT EXISTS analyses (id TEXT PRIMARY KEY, created_at TEXT, payload TEXT)')
@@ -117,14 +118,15 @@ class DirectPipelineTests(unittest.TestCase):
                 self.assertEqual(len(result['features']), 23)
                 self.assertEqual(service.report(result['id'])['sha256'], result['sha256'])
                 self.assertEqual(len(service.history()), 1)
-                with self.assertRaises(ValueError):
-                    run(module.upload('ransomware', UploadFile(io.BytesIO(fixture()), filename='test.exe')))
-                with self.assertRaises(ValueError):
-                    run(module.upload('malware', UploadFile(io.BytesIO(b'MZ'), filename='bad.exe')))
+                behavior = run(module.upload('ransomware', UploadFile(io.BytesIO(fixture()), filename='test.exe')))
+                self.assertEqual(behavior['estado_analise'], 'parcial')
+                self.assertEqual(behavior['comportamento']['estado'], 'em_falta')
+                invalid = run(module.upload('malware', UploadFile(io.BytesIO(b'MZ'), filename='bad.exe')))
+                self.assertEqual(invalid['estado_analise'], 'parcial')
                 sample = {n: 1 for n in service.feature_names('phishing')}
                 result = run(module.upload('phishing', UploadFile(io.BytesIO(json.dumps(sample).encode()), filename='features.json')))
                 self.assertTrue(result['modelo_treinado_utilizado'])
-                self.assertEqual(len(service.history()), 2)
+                self.assertEqual(len(service.history()), 4)
 
     def test_url_and_structured_input_rules(self):
         from backend.real_inputs import inspect_url, parse_feature_file
@@ -147,7 +149,7 @@ class IntegrationTests(unittest.TestCase):
         from backend.app import app
         cls.service = service
         cls.original_database = service.database
-        cls.temp = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1])
+        cls.temp = tempfile.TemporaryDirectory()
         import sqlite3
         def database():
             db = sqlite3.connect(Path(cls.temp.name) / 'test.sqlite3')
@@ -186,7 +188,8 @@ class IntegrationTests(unittest.TestCase):
 
     def test_ransomware_cannot_use_raw_executable(self):
         r = self.client.post('/api/analyze/upload/ransomware', files={'file': ('test.exe', fixture())})
-        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['comportamento']['estado'], 'em_falta')
 
     def test_phishing_features_use_real_model(self):
         sample = {name: 1 for name in self.service.feature_names('phishing')}
@@ -197,7 +200,9 @@ class IntegrationTests(unittest.TestCase):
     def test_invalid_inputs(self):
         for name, data in [('bad.exe', b'MZ'), ('empty.exe', b''), ('missing.csv', b'wrong\n1\n')]:
             r = self.client.post('/api/analyze/upload/malware', files={'file': (name, data)})
-            self.assertEqual(r.status_code, 422, r.text)
+            self.assertEqual(r.status_code, 422 if not data else 200, r.text)
+            if data:
+                self.assertEqual(r.json()['estado_analise'], 'parcial')
         sample = {n: 0 for n in self.service.feature_names('malware')}
         sample['SizeOfCode'] = float('inf')
         with self.assertRaises(ValueError):

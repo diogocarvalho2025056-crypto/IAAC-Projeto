@@ -1,21 +1,24 @@
 import hashlib
+import logging
 import json
 import time
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from backend.html_report import render_report
 from fastapi.staticfiles import StaticFiles
 
-from backend import crew_analysis, service
+from backend import crew_analysis, evidence, service
+from src.virustotal_client import consultar_ficheiro, consultar_url
 from backend.pe_features import extract_pe
-from backend.real_inputs import MAX_UPLOAD_BYTES, inspect_url, inspect_file, parse_feature_file
+from backend.real_inputs import MAX_UPLOAD_BYTES, inspect_file, parse_feature_file
 from backend.ransomware_static import extract as extract_ransomware
 from backend.phishing_url import extract as extract_phishing_url
 
-app = FastAPI(title='CyberGuard AI V4', version='4.0.0')
+app = FastAPI(title='CyberGuard AI V5', version='5.0.0')
 app.mount('/static', StaticFiles(directory=service.ROOT / 'frontend'), name='static')
 
 
@@ -48,7 +51,7 @@ def home():
 
 @app.get('/api/models')
 def models():
-    return {'models': service.model_status(), 'versao': '4.0.0'}
+    return {'models': service.model_status(), 'versao': '5.0.0'}
 
 
 @app.get('/api/crew/status')
@@ -60,7 +63,7 @@ def finish_analysis(result):
     try:
         result['crewai'] = crew_analysis.interpret(result)
     except crew_analysis.CrewUnavailable as exc:
-        raise HTTPException(503, str(exc)) from exc
+        result["crewai"] = {"estado": "indisponivel", "summary": str(exc)}
     return service.save(result)
 
 
@@ -93,9 +96,25 @@ def html_report(identifier: str, download: bool = True):
     return HTMLResponse(render_report(item),headers=headers)
 
 
+def unavailable(detail):
+    return {'classificacao': 'Não determinada', 'modelo_treinado_utilizado': False,
+            'limitacao': detail}
+
+
+def infer(kind, features):
+    try:
+        return service.predict(kind, features)
+    except ValueError as exc:
+        return unavailable(str(exc))
+    except Exception:
+        logging.getLogger(__name__).exception('Falha na inferência de %s', kind)
+        return unavailable('O modelo treinado está indisponível. Consulta o estado dos modelos.')
+
+
 @app.post('/api/analyze/upload/{kind}')
-async def upload(kind: str, file: UploadFile = File(...)):
-    names = service.feature_names(kind)
+async def upload(kind: str, file: UploadFile = File(...), features_file: Annotated[bool | None, Form()] = None):
+    if kind not in service.ARTIFACTS:
+        raise ValueError('Tipo de análise desconhecido.')
     try:
         data = await file.read(MAX_UPLOAD_BYTES + 1)
     finally:
@@ -104,43 +123,65 @@ async def upload(kind: str, file: UploadFile = File(...)):
         raise HTTPException(413, 'O limite é 12 MiB por ficheiro.')
     if not data:
         raise ValueError('O ficheiro está vazio.')
-    suffix = Path(file.filename or '').suffix.lower()
+    filename = file.filename or 'ficheiro'
+    suffix = Path(filename).suffix.lower()
+    structured = features_file if features_file is not None else suffix in ('.csv', '.json')
     started = time.perf_counter()
-    def analyze():
-        if suffix in ('.csv', '.json'):
-            rows = parse_feature_file(data, suffix, names)
-            results = [service.predict(kind, row) for row in rows]
+    sha256 = hashlib.sha256(data).hexdigest()
+
+    def local():
+        if structured:
+            try:
+                rows = parse_feature_file(data, suffix, service.feature_names(kind))
+            except (ValueError, OSError) as exc:
+                result = unavailable(str(exc) if isinstance(exc, ValueError) else 'Esquema de features indisponível.')
+                return dict(result, modo='features_estruturadas')
+            results = [infer(kind, row) for row in rows]
             result = dict(results[0]) if len(results) == 1 else {
                 'classificacao': f'{len(results)} amostras analisadas', 'resultados': results,
-                'modelo_treinado_utilizado': True,
+                'modelo_treinado_utilizado': all(item['modelo_treinado_utilizado'] for item in results),
             }
-            result.update(modo='features_estruturadas', numero_amostras=len(results))
-        elif kind in ('malware', 'ransomware_static') and not data.startswith(b'MZ'):
-            result = inspect_file(data, file.filename or 'ficheiro', kind)
-            result['limitacao'] = 'Formato sem classificador treinado nesta versão. Inspeção estática sem diagnóstico de infeção.'
-        elif kind in ('malware', 'ransomware_static'):
-            features = extract_pe(data) if kind == 'malware' else extract_ransomware(data)
-            result = service.predict(kind, features)
-            result.update(modo='pe_estatico', extrator='pe-v1',
-                          validacao_externa=False,
-                          limitacao='Inferência real. A equivalência do extrator com o extrator original do dataset ainda exige validação pareada.')
-        elif kind == 'ransomware':
-            raise ValueError('O modelo atual requer 165 features, incluindo comportamento de sandbox. Envia CSV/JSON completo. Não identifica a família ransomware.')
-        else:
-            raise ValueError('Para este modelo de phishing, envia CSV/JSON com as 30 features. Para um URL, usa Triagem de URL.')
-        result.update(tipo=kind, sha256=hashlib.sha256(data).hexdigest(), tamanho_bytes=len(data),
-                      tempo_ms=round((time.perf_counter() - started) * 1000, 2))
+            if kind == 'ransomware':
+                result['comportamento'] = {'estado': 'fornecido', 'origem': 'Features fornecidas pelo utilizador',
+                                           'detalhe': 'A proveniência da telemetria não foi verificada.'}
+            return dict(result, modo='features_estruturadas', numero_amostras=len(results))
+
+        inspection = inspect_file(data, filename, kind)
         if kind == 'ransomware':
-            result['limitacao'] = 'Este classificador distingue benigno de malware em geral; não identifica ransomware especificamente.'
-        if kind == 'ransomware_static' and result.get('modelo_treinado_utilizado'):
-            result['limitacao'] = 'Não ransomware pode incluir outros malwares. Modelo estático de demonstração: recall interno de teste 63,96%; sem validação externa pareada do extrator.'
+            features, behavior = evidence.behavioral(sha256)
+            if features is None:
+                result = unavailable(behavior['detalhe'])
+                return dict(inspection, **result, comportamento=behavior)
+            result = infer(kind, features)
+            if result['modelo_treinado_utilizado']:
+                result['limitacao'] = 'O modelo distingue benigno de malware em geral.'
+            elif result['limitacao'].endswith('requer um valor inteiro.'):
+                behavior.update(estado='incompativel', detalhe=result['limitacao'])
+            return dict(result, modo='sandbox_export', comportamento=behavior,
+                        indicadores_observados=inspection['indicadores_observados'])
+        if kind in ('malware', 'ransomware_static') and data.startswith(b'MZ'):
+            try:
+                extractor = extract_pe if kind == 'malware' else extract_ransomware
+                features = extractor(data)
+            except ValueError as exc:
+                return dict(inspection, limitacao=str(exc))
+            result = infer(kind, features)
+            if result['modelo_treinado_utilizado']:
+                result['limitacao'] = 'Análise estática. A equivalência com a extração do dataset original ainda requer validação pareada.'
+            return dict(result, modo='pe_estatico', extrator='pe-v1', validacao_externa=False,
+                        indicadores_observados=inspection['indicadores_observados'])
+        return dict(inspection, limitacao='Formato sem classificador compatível para esta opção.')
+
+    def reputation():
+        return {'estado': 'nao_aplicavel'} if structured else consultar_ficheiro(sha256)
+
+    def analyze():
+        result = evidence.collect(local, reputation)
+        result.update(tipo=kind, sha256=sha256, tamanho_bytes=len(data),
+                      tempo_ms=round((time.perf_counter() - started) * 1000, 2))
         return finish_analysis(result)
-    try:
-        return await run_in_threadpool(analyze)
-    except (ValueError, HTTPException):
-        raise
-    except Exception as exc:
-        raise HTTPException(503, 'Não foi possível executar o modelo. Consulta o estado dos modelos e as dependências.') from exc
+
+    return await run_in_threadpool(analyze)
 
 
 @app.post('/api/analyze/url')
@@ -154,10 +195,21 @@ async def url(request: Request):
         raise ValueError('JSON inválido.')
     if not isinstance(payload, dict):
         raise ValueError('É necessário um objeto JSON com o URL.')
+    features = extract_phishing_url(payload.get('url'))
+
+    def local():
+        result = infer('phishing_url', features)
+        if result['modelo_treinado_utilizado']:
+            result['limitacao'] = 'Modelo lexical de 7 features. A equivalência do extrator com os dados de treino ainda não tem validação pareada.'
+        return result
+
+    def reputation():
+        if payload.get('consultar_virustotal') is False:
+            return {'estado': 'desativado'}
+        return consultar_url(payload['url'], payload.get('autorizar_consulta_privada') is True)
+
     def analyze():
-        features = extract_phishing_url(payload.get('url'))
-        result = service.predict('phishing_url', features)
-        result.update(tipo='phishing_url', modo='modelo_phishing_url',
-                      limitacao='Modelo lexical com 7 features. Sem HTML, reputação ou validação externa pareada. Legítimo não garante segurança.')
+        result = evidence.collect(local, reputation)
+        result.update(tipo='phishing_url', modo='modelo_phishing_url')
         return finish_analysis(result)
     return await run_in_threadpool(analyze)

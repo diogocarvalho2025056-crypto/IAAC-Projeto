@@ -1,18 +1,17 @@
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
 from backend import app, crew_analysis
 from backend.html_report import render_report
 
 
 class CrewAnalysisTests(unittest.TestCase):
-    def test_cannot_save_without_crew(self):
-        with patch.object(crew_analysis, 'interpret', side_effect=crew_analysis.CrewUnavailable('Inicia o Ollama.')), patch.object(app.service, 'save') as save:
-            with self.assertRaises(HTTPException) as error:
-                app.finish_analysis({'classificacao': 'Phishing'})
-            self.assertEqual(error.exception.status_code, 503)
-            save.assert_not_called()
+    def test_saves_evidence_without_crew(self):
+        with patch.object(crew_analysis, 'interpret', side_effect=crew_analysis.CrewUnavailable('Inicia o Ollama.')), patch.object(app.service, 'save', side_effect=lambda item: item) as save:
+            result = app.finish_analysis({'classificacao': 'Phishing'})
+        save.assert_called_once()
+        self.assertEqual(result['classificacao'], 'Phishing')
+        self.assertEqual(result['crewai']['estado'], 'indisponivel')
 
     def test_preserves_classification_and_includes_escaped_synthesis(self):
         synthesis = {'engine': 'CrewAI', 'model': 'local', 'agents': ['Analista', 'Revisor'],

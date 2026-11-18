@@ -1,13 +1,13 @@
 # Atualização para entrega: V3.1
 
-Esta atualização substitui as limitações de entrada descritas na documentação inicial da V3.
+Registo histórico do treino dos modelos estático e lexical introduzidos na V3.1. Consulta [a entrega V5 Web](ENTREGA_PROFESSOR.md) para os fluxos e testes atuais.
 
 ## Fluxos disponíveis
 
 - Malware: EXE/DLL com o modelo original de 23 features.
 - Ransomware estático: EXE/DLL com novo XGBoost de 16 features de cabeçalhos, sem sandbox. Target: Category == Ransomware; a classe negativa inclui benigno e outros malwares. Não ransomware não significa benigno.
-- Phishing de URL: novo XGBoost lexical com 7 features extraíveis do URL, treinado com o dataset de phishing do projeto. Não é o modelo completo de 30 features. O URL não é visitado nem guardado.
-- Modelos originais de phishing (30 features) e comportamento (165 features): mantidos para CSV/JSON completo.
+- Phishing de URL: novo XGBoost lexical com 7 features extraíveis do URL, treinado com o dataset de phishing do projeto. Não é o modelo completo de 30 features. Na V5 Web, o servidor não visita a página e consulta a reputação no VirusTotal conforme a política descrita no README.
+- Modelos originais de phishing (30 features) e comportamento (165 features): mantidos para CSV/JSON completo. A V5 Web também pode carregar um export de sandbox associado ao SHA-256 para o modelo comportamental.
 - Outros formatos: inspeção estática com identificação, hash, entropia e indicadores, sem afirmar uma classificação ML.
 
 ## Treino e avaliação
@@ -29,4 +29,4 @@ As regras do extrator lexical estão documentadas no código. Não foram validad
 3. Abrir Phishing de URL e introduzir um URL. O resultado identifica a inferência treinada e disponibiliza as features no relatório.
 4. Mostrar histórico, identificação SHA-256 do modelo e relatório JSON.
 
-Não executar ficheiros suspeitos no Windows. O upload realiza apenas análise estática.
+Não executar ficheiros suspeitos no Windows. O fluxo Web realiza extração estática ou consome telemetria existente, consoante a opção escolhida.
