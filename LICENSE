@@ -1,8 +1,12 @@
-Copyright (c) 2026 Diogo Teixeira Carvalho, José Maria Machado Alves, Tomás Maio Matos. All rights reserved.
+Copyright (c) 2026 Diogo Teixeira Carvalho, José Maria Machado Alves,
+and Tomás Maio Matos. All rights reserved.
 
-This software and all associated files are proprietary and confidential. 
-Unauthorized copying, modification, distribution, or public display of this 
-work via any medium is strictly prohibited. 
+This project is proprietary software.
 
-You may view the source code for educational purposes, but you may not run, 
-modify, host, or redistribute it without explicit written permission from the copyright holder.
+The source code is made publicly available for viewing and educational
+reference only. No permission is granted to run, modify, host, distribute,
+or use this software for commercial or non-commercial purposes without
+prior written permission from the copyright holders.
+
+Use of this repository is also subject to GitHub's Terms of Service.
+Third-party components remain subject to their respective licences.
